@@ -1,0 +1,106 @@
+# Household runbook
+
+For the family. This covers what the system does, what you do, and what to do when
+something looks wrong. It covers the first piece only: **meeting notes** and **document
+search**. Each new piece gets its own section here.
+
+## What it does, in three sentences
+
+After a meeting, the transcript goes to the computer at home, which writes a short summary
+and a list of who does what. You get a link, read the summary, and approve or reject it.
+Once you approve, the summary goes to Notion and any agreed appointment appears as a
+**draft** in Google Calendar, where only you can see it until you accept it.
+
+The full transcript never leaves the house. See [data-boundary.md](data-boundary.md) for
+what goes where and why.
+
+## Every day
+
+### Approving meeting notes
+
+1. Open the approval link. *(In this first version the link is in the activity log and in
+   n8n's Executions list. Sending it to your phone is the next step.)*
+2. Read the summary, and **check dates and times especially.** The home model sometimes
+   gets simple date calculations slightly wrong, like "end of next week".
+3. Choose one:
+   - **Approve notes and calendar draft**: the Notion page is created, and so is a draft
+     event.
+   - **Approve notes only**: just the Notion page.
+   - **Reject**: nothing is written anywhere. Add a note saying why, if you like.
+4. The calendar draft is marked *tentative*, has no guests, and starts with **[Draft]**. It
+   invites nobody. Open it, fix anything, add people, and save it as a real event.
+
+Nobody has to approve right away. The request waits until someone does, even if the
+computer restarts.
+
+### Asking a question about the family's documents
+
+*(In this first version you ask from the Terminal. A simple chat window is planned.)*
+
+    python -m search.ask "When does Ava's EpiPen expire?"
+
+The answer names the document it came from, like `[school-enrollment-ava.md]`. **For
+anything that matters, open that document and check.** If the documents don't contain
+the answer, it replies `NOT FOUND` instead of guessing.
+
+### Adding a document
+
+Put the file in the documents folder, then rebuild the search index:
+
+    python -m search.index
+
+It takes a few seconds. The index stays on the home computer.
+
+## When something looks wrong
+
+| What you notice | What's going on | What to do |
+|---|---|---|
+| No approval link, and nothing in Notion | The home computer is off or asleep, or n8n isn't running | Check the computer is on. Open http://localhost:5678. If it doesn't load, restart the computer and wait 2 minutes: everything starts on its own |
+| The link opens, but the page is an error | The request was already answered, or it's an old link | Open n8n, then **Executions**, to see what happened to it |
+| "This transcript is about N tokens and the model is set to …" | The meeting is longer than the current setting allows | Ask the person who looks after the system to raise `numCtx`, or send the meeting in two halves |
+| Calendar drafts stopped appearing, but Notion pages still do | Google's sign-in has expired | In n8n, go to **Credentials**, open **Google Calendar account**, click **Sign in with Google** again, then retry the failed run |
+| "Could not find database" | The Notion database was moved or stopped being shared | In Notion, open the database, click **•••**, then **Connections**, and add **household-ai** |
+| Answers are very slow | The model is dealing with a lot of text at once, or something else is using the computer heavily | Wait. If it happens often, tell the person who looks after the system |
+| Anything failed | Every failure is logged, and the run is kept | In n8n, open **Executions**, open the red one, fix the cause from this table, and click **Retry** |
+
+**Nothing falls back to the cloud when the home computer has a problem.** A failed meeting
+summary waits for you to retry it. It is never quietly sent to an outside service instead.
+
+## Where things are
+
+| What | Where |
+|---|---|
+| Activity log: what happened and when, never the content | `logs/household.jsonl`, one line per step |
+| Workflows, saved credentials, and runs waiting for approval | n8n, at http://localhost:5678 (only reachable from the home computer, or over Tailscale) |
+| Documents and their search index | The documents folder and `search/index.json`. Both stay on the home computer |
+| The key that unlocks saved credentials | `.env` on the home computer, **and a copy in the family password manager** |
+
+To see only the failures in the log:
+
+    grep '"failed"' logs/household.jsonl
+
+## Five minutes, once a month
+
+1. Search the log for `"failed"` and check each one was dealt with.
+2. Open n8n, then **Executions**, and check nothing has been waiting for approval for weeks.
+3. Check the computer has at least 20 GB of free disk space.
+4. Check last month's backup exists and opens. *(Encrypted automatic backups are part
+   of phase 1.)*
+
+## Twice a year (the maintenance visit)
+
+- Replace the Notion token and Google sign-in, and update the saved credentials.
+- Update n8n and Ollama to tested versions, one at a time, and re-run the model checks in
+  `bench/` before trusting a new model.
+- Read through this runbook together and fix anything that turned out to be unclear.
+
+## Known limits
+
+- **The home model is good, not perfect.** On the test questions it answered everything
+  correctly, but it can get small details like dates slightly wrong. That's why a person
+  approves anything that gets written, and why answers name their source.
+- **Google's sign-in expires every 7 days** while the Google app is in "testing" mode.
+  Before real use, the app has to be published (or made "internal" on Google Workspace),
+  or calendar drafts will stop every week.
+- **Very long meetings take longer.** How long depends on the computer's memory. The
+  numbers for this setup are in [bench/README.md](../bench/README.md).
