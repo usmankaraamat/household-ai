@@ -14,3 +14,6 @@ bench/results/*.raw.json
 # the search index holds document text and embeddings: it stays on the home machine
 search/index.json
 logs/*.jsonl
+# private working notes: kept on this machine, never published
+HANDOFF.md
+docs/dry-run-log.md
