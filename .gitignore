@@ -17,3 +17,5 @@ logs/*.jsonl
 # private working notes: kept on this machine, never published
 HANDOFF.md
 docs/dry-run-log.md
+# your own documents, their converted text and their search index: never published
+personal/

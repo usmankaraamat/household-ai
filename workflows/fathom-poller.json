@@ -1,0 +1,209 @@
+{
+  "id": "fathomPoller0001",
+  "name": "Fathom meetings in",
+  "active": false,
+  "nodes": [
+    {
+      "id": "35279b66-85f9-5a63-877f-42eeb3b830a3",
+      "name": "Every 10 minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 10
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ed3ea05a-3faf-5c01-9470-4a2bb841626b",
+      "name": "Poller config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        300
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d277c23d-b2de-50c4-a7e9-fe71d4981881",
+              "name": "lookbackHours",
+              "value": 48,
+              "type": "number"
+            },
+            {
+              "id": "0cd4e63f-d6bd-58a9-8ff0-99848d114fbf",
+              "name": "timezone",
+              "value": "America/Los_Angeles",
+              "type": "string"
+            },
+            {
+              "id": "9523507b-6656-56ce-a991-33dda10dd45d",
+              "name": "meetingWebhook",
+              "value": "http://localhost:5678/webhook/meeting-transcript",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      }
+    },
+    {
+      "id": "4cef2468-b990-5374-b234-7854d2a7e899",
+      "name": "Ask Fathom for recent meetings",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        300
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.fathom.ai/external/v1/meetings",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "created_after",
+              "value": "={{ new Date(Date.now() - $json.lookbackHours * 3600e3).toISOString() }}"
+            },
+            {
+              "name": "include_transcript",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "a98a2ead-2742-54c2-9900-63f908b75844",
+      "name": "New meetings only",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst log = (step, extra = {}) => fs.appendFileSync('/data/logs/household.jsonl',\n  JSON.stringify({ ts: new Date().toISOString(), workflow: $workflow.name, execution: $execution.id, step, ...extra }) + '\\n');\n\nconst cfg = $('Poller config').first().json;\nconst r = $input.first().json;\nconst meetings = r.items || r.meetings;\nif (!Array.isArray(meetings)) throw new Error(`Fathom's reply had no list of meetings (keys: ${Object.keys(r).join(', ')})`);\nif (r.next_cursor) log('fathom_more_pages', { note: 'more meetings than one page; the rest arrive on the next checks' });\n\n// Remembered between runs (only in an active workflow): which meetings were already sent.\nconst seen = $getWorkflowStaticData('global');\nseen.sent = seen.sent || {};\nconst day = t => new Intl.DateTimeFormat('en-CA', { timeZone: cfg.timezone, year: 'numeric', month: '2-digit', day: '2-digit' })\n  .format(new Date(t));\n\nconst out = [];\nfor (const m of meetings) {\n  const key = `fathom-${m.recording_id}`;\n  if (seen.sent[key]) continue;\n  const lines = (m.transcript || []).map(t => `${(t.speaker && t.speaker.display_name) || 'Someone'}: ${t.text}`);\n  if (!lines.length) {  // Fathom lists a meeting before its transcript is ready\n    log('fathom_transcript_not_ready', { meeting_id: key });\n    continue;\n  }\n  const speakers = [...new Set((m.transcript || []).map(t => t.speaker && t.speaker.display_name).filter(Boolean))];\n  const invitees = (m.calendar_invitees || []).map(i => i.name).filter(Boolean);\n  out.push({ json: { key, body: {\n    meeting_id: key,\n    title: m.meeting_title || m.title || 'Untitled meeting',\n    date: day(m.recording_start_time || m.scheduled_start_time || m.created_at),\n    attendees: invitees.length ? invitees : speakers,\n    transcript: lines.join('\\n'),\n  } } });\n}\nlog('fathom_checked', { listed: meetings.length, new: out.length });\nreturn out;\n"
+      }
+    },
+    {
+      "id": "66eedc26-223f-53d0-8853-d2bc7960d1b0",
+      "name": "Send to the meeting workflow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Poller config').first().json.meetingWebhook }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "67dd5002-d6a5-5231-8169-6e2ccdb4c804",
+      "name": "Remember what was sent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst log = (step, extra = {}) => fs.appendFileSync('/data/logs/household.jsonl',\n  JSON.stringify({ ts: new Date().toISOString(), workflow: $workflow.name, execution: $execution.id, step, ...extra }) + '\\n');\n\n// Runs only after every new meeting reached the meeting workflow. A meeting that failed to\n// send isn't remembered, so the next check sends it again; the meeting workflow is keyed on\n// the same ID, so a resend can't make a second Notion page or calendar draft.\nconst seen = $getWorkflowStaticData('global');\nseen.sent = seen.sent || {};\nconst now = Date.now();\nfor (const item of $('New meetings only').all()) seen.sent[item.json.key] = now;\nfor (const [k, t] of Object.entries(seen.sent)) if (now - t > 30 * 864e5) delete seen.sent[k];\nlog('fathom_sent', { meetings: $('New meetings only').all().map(i => i.json.key) });\nreturn [{ json: { sent: $('New meetings only').all().length } }];\n"
+      }
+    }
+  ],
+  "connections": {
+    "Every 10 minutes": {
+      "main": [
+        [
+          {
+            "node": "Poller config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Poller config": {
+      "main": [
+        [
+          {
+            "node": "Ask Fathom for recent meetings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask Fathom for recent meetings": {
+      "main": [
+        [
+          {
+            "node": "New meetings only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "New meetings only": {
+      "main": [
+        [
+          {
+            "node": "Send to the meeting workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send to the meeting workflow": {
+      "main": [
+        [
+          {
+            "node": "Remember what was sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "hhErrorHandler01"
+  },
+  "pinData": {}
+}

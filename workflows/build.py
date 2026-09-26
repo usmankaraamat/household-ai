@@ -11,7 +11,7 @@ import uuid
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-MAIN_ID, ERROR_ID = "mtgToNotion00001", "hhErrorHandler01"
+MAIN_ID, ERROR_ID, POLL_ID = "mtgToNotion00001", "hhErrorHandler01", "fathomPoller0001"
 
 # The only choices the approval form offers. Anything else stops the run before a write.
 DECISIONS = ["Approve notes and calendar draft", "Approve notes only", "Reject"]
@@ -39,10 +39,13 @@ const luhn = s => {
   }
   return d.length >= 13 && sum % 10 === 0;
 };
-const ID_LABEL = /\b(?:account|acct|policy|member|routing|passport|licen[cs]e|ssn)\b(?:\s*(?:no\.?|number|#|id))?\s*[:#]?\s*((?=[A-Z0-9-]*\d)[A-Z0-9][A-Z0-9-]{5,})/gi;
+const ID_LABEL = /\b(?:account|acct|policy|member|routing|passport|licen[cs]e|ssn|cnic|nic|ntn|iban)\b(?:\s*(?:no\.?|number|#|id))?\s*[:#]?\s*((?=[A-Z0-9-]*\d)[A-Z0-9][A-Z0-9-]{5,})/gi;
 const DOB = /\b(?:dob|date of birth|born(?: on)?)\b\s*[:\-]?\s*(\d{1,4}[\/.-]\d{1,2}[\/.-]\d{1,4}|[A-Z][a-z]+ \d{1,2},? \d{4})/gi;
 function scrub(text, counts) {
+  // Most specific first, so a CNIC is called a CNIC and not a card or a long number.
   return String(text)
+    .replace(/\b\d{5}-\d{7}-\d\b/g, () => hit(counts, 'CNIC'))
+    .replace(/\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){3,7}(?: ?[A-Z0-9]{1,3})?\b/g, () => hit(counts, 'IBAN'))
     .replace(/\b\d{3}-\d{2}-\d{4}\b/g, () => hit(counts, 'SSN'))
     .replace(/\b(?:\d[ -]?){12,18}\d\b/g, m => luhn(m) ? hit(counts, 'card number') : m)
     .replace(ID_LABEL, (m, v) => m.slice(0, m.length - v.length) + hit(counts, 'ID or account number'))
@@ -295,6 +298,59 @@ if (r.statusCode === 200 || r.statusCode === 201) {
 return [{ json: { statusCode: r.statusCode } }];
 """
 
+# The Fathom poller. n8n at home only listens to its own machine, so Fathom (on the internet)
+# can't push meetings to it. Instead the home machine asks Fathom every few minutes, and
+# nothing from outside ever gets in. Each new meeting is handed to the meeting workflow's
+# webhook, one run per meeting, so everything after this is the same path a manual test uses.
+POLL_NEW = LOG + r"""
+const cfg = $('Poller config').first().json;
+const r = $input.first().json;
+const meetings = r.items || r.meetings;
+if (!Array.isArray(meetings)) throw new Error(`Fathom's reply had no list of meetings (keys: ${Object.keys(r).join(', ')})`);
+if (r.next_cursor) log('fathom_more_pages', { note: 'more meetings than one page; the rest arrive on the next checks' });
+
+// Remembered between runs (only in an active workflow): which meetings were already sent.
+const seen = $getWorkflowStaticData('global');
+seen.sent = seen.sent || {};
+const day = t => new Intl.DateTimeFormat('en-CA', { timeZone: cfg.timezone, year: 'numeric', month: '2-digit', day: '2-digit' })
+  .format(new Date(t));
+
+const out = [];
+for (const m of meetings) {
+  const key = `fathom-${m.recording_id}`;
+  if (seen.sent[key]) continue;
+  const lines = (m.transcript || []).map(t => `${(t.speaker && t.speaker.display_name) || 'Someone'}: ${t.text}`);
+  if (!lines.length) {  // Fathom lists a meeting before its transcript is ready
+    log('fathom_transcript_not_ready', { meeting_id: key });
+    continue;
+  }
+  const speakers = [...new Set((m.transcript || []).map(t => t.speaker && t.speaker.display_name).filter(Boolean))];
+  const invitees = (m.calendar_invitees || []).map(i => i.name).filter(Boolean);
+  out.push({ json: { key, body: {
+    meeting_id: key,
+    title: m.meeting_title || m.title || 'Untitled meeting',
+    date: day(m.recording_start_time || m.scheduled_start_time || m.created_at),
+    attendees: invitees.length ? invitees : speakers,
+    transcript: lines.join('\n'),
+  } } });
+}
+log('fathom_checked', { listed: meetings.length, new: out.length });
+return out;
+"""
+
+POLL_REMEMBER = LOG + r"""
+// Runs only after every new meeting reached the meeting workflow. A meeting that failed to
+// send isn't remembered, so the next check sends it again; the meeting workflow is keyed on
+// the same ID, so a resend can't make a second Notion page or calendar draft.
+const seen = $getWorkflowStaticData('global');
+seen.sent = seen.sent || {};
+const now = Date.now();
+for (const item of $('New meetings only').all()) seen.sent[item.json.key] = now;
+for (const [k, t] of Object.entries(seen.sent)) if (now - t > 30 * 864e5) delete seen.sent[k];
+log('fathom_sent', { meetings: $('New meetings only').all().map(i => i.json.key) });
+return [{ json: { sent: $('New meetings only').all().length } }];
+"""
+
 ON_ERROR = LOG + r"""
 // Runs when any household workflow fails after its retries. The failed run keeps its
 // data in n8n, so it can be retried from the Executions list once the cause is fixed.
@@ -439,6 +495,42 @@ def main_workflow():
             "pinData": {}}
 
 
+def fathom_workflow():
+    poller = node("Poller config", "set", 3.4, 220, {"assignments": {"assignments": [
+        {"id": str(uuid.uuid5(uuid.NAMESPACE_URL, f"poll/{n}")), "name": n, "value": v, "type": t} for n, v, t in [
+            # Look back this far on every check. Long enough to catch a transcript that took
+            # hours to be ready, or a machine that was off; already-sent meetings are skipped.
+            ("lookbackHours", 48, "number"),
+            # The meeting date is worked out in this time zone. Match the meeting workflow's Config.
+            ("timezone", "America/Los_Angeles", "string"),
+            # Inside the n8n container, n8n itself is on localhost:5678.
+            ("meetingWebhook", "http://localhost:5678/webhook/meeting-transcript", "string"),
+        ]]}, "includeOtherFields": False, "options": {}})
+    nodes = [
+        node("Every 10 minutes", "scheduleTrigger", 1.2, 0,
+             {"rule": {"interval": [{"field": "minutes", "minutesInterval": 10}]}}),
+        poller,
+        node("Ask Fathom for recent meetings", "httpRequest", 4.2, 440, {
+            "method": "GET", "url": "https://api.fathom.ai/external/v1/meetings",
+            # The key goes in an n8n "Header Auth" credential: name X-Api-Key, value the key.
+            "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
+            "sendQuery": True, "queryParameters": {"parameters": [
+                {"name": "created_after",
+                 "value": "={{ new Date(Date.now() - $json.lookbackHours * 3600e3).toISOString() }}"},
+                {"name": "include_transcript", "value": "true"},
+            ]},
+            "options": {"timeout": 60000}}, **RETRY),
+        code("New meetings only", 660, POLL_NEW),
+        http("Send to the meeting workflow", 880, "={{ $('Poller config').first().json.meetingWebhook }}",
+             "={{ JSON.stringify($json.body) }}"),
+        code("Remember what was sent", 1100, POLL_REMEMBER),
+    ]
+    order = [n["name"] for n in nodes]
+    return {"id": POLL_ID, "name": "Fathom meetings in", "active": False, "nodes": nodes,
+            "connections": {a: link([b]) for a, b in zip(order, order[1:])},
+            "settings": {"executionOrder": "v1", "errorWorkflow": ERROR_ID}, "pinData": {}}
+
+
 def error_workflow():
     nodes = [node("A household workflow failed", "errorTrigger", 1, 0, {}),
              code("Log the failure", 220, ON_ERROR)]
@@ -447,7 +539,8 @@ def error_workflow():
             "settings": {"executionOrder": "v1"}, "pinData": {}}
 
 
-WORKFLOWS = {"meeting-to-notion.json": main_workflow, "error-handler.json": error_workflow}
+WORKFLOWS = {"meeting-to-notion.json": main_workflow, "fathom-poller.json": fathom_workflow,
+             "error-handler.json": error_workflow}
 
 
 def render(filename):

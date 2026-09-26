@@ -37,8 +37,8 @@ exception is written down here, with the reason.
 1. **Nothing goes to Claude.** This slice makes no cloud AI calls at all. The Claude rows
    above describe phase 1.
 2. **An outbound check runs before every write to Notion or Google.** It removes SSNs,
-   card numbers, labelled account, policy and passport numbers, long numbers and dates of
-   birth, then checks the final payload again and stops the run if anything is left.
+   Pakistani CNICs, IBANs, card numbers, labelled account, policy and passport numbers,
+   long numbers and dates of birth, then checks the final payload again and stops the run if anything is left.
 3. **A human approves** anything that goes out in the family's name, and the approval
    form shows exactly what will be sent, including what the check removed. An unrecognized
    approval choice stops the run before any write.
@@ -48,9 +48,12 @@ exception is written down here, with the reason.
 5. **Calendar drafts are private and don't block time.** They have no guests, their
    details are hidden from anyone the calendar is shared with, and the slot stays free
    until someone accepts it.
-6. **Failures stay private.** The workflow has no cloud path. If the home model is down,
+6. **Nothing from outside connects in.** Meetings arrive because n8n asks Fathom for new
+   ones every 10 minutes. n8n listens only to the home machine itself, so there is no
+   address on the internet for anyone to reach.
+7. **Failures stay private.** The workflow has no cloud path. If the home model is down,
    the run fails, is logged, and can be retried from n8n once the model is back.
-7. **Every step is logged** with the meeting ID and what happened, never what was said.
+8. **Every step is logged** with the meeting ID and what happened, never what was said.
    Keys stay in n8n's encrypted store on the home machine.
 
 **Phase 1 adds:** a notification to a phone when something needs approval or has failed
@@ -64,6 +67,11 @@ this repository, so they are on the day-one checklist instead.
 
 ## Known limits, stated plainly
 
+- **The meeting recorder hears everything.** Fathom records the audio and writes the full
+  transcript on its own servers, so anything said in a meeting, including numbers the
+  outbound check would remove, is already with Fathom. The check stops *this system* adding
+  to that; it doesn't make the recording private. For meetings that must stay private,
+  record on a phone and transcribe on the home machine (e.g. with Whisper) instead.
 - **Services already in the cloud are outside this boundary.** Calendar, Gmail, Notion and
   the meeting recorder already hold what the family put there. This design makes sure
   the new AI system adds as little to that as it can. It does not undo what's already

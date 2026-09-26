@@ -26,9 +26,10 @@ MEETING = {"id": "a" * 32, "title": "Sunday family sync", "date": "2026-09-20", 
 EVENT = {"needed": True, "title": "Flu shots", "date": "2026-10-10", "start": "10:00", "end": "11:00"}
 
 
-def run_js(code, input=None, nodes=None, run_index=0):
+def run_js(code, input=None, nodes=None, run_index=0, static=None):
     out = subprocess.run([NODE, str(HARNESS)], input=json.dumps(
-        {"code": code, "input": input or {}, "nodes": nodes or {}, "runIndex": run_index}),
+        {"code": code, "input": input or {}, "nodes": nodes or {}, "runIndex": run_index,
+         "staticData": static or {}}),
         capture_output=True, text=True, timeout=30)
     if out.returncode:
         raise RuntimeError(out.stderr)
@@ -96,6 +97,11 @@ class OutboundCheck(unittest.TestCase):
             "reference 4471928374": "long number",
             "Leo was born on 03/14/2019": "date of birth",
             "DOB: March 14, 2019": "date of birth",
+            "my CNIC is 35202-1234567-1": "CNIC",
+            "35202-1234567-1": "CNIC",
+            "IBAN PK36SCBL0000001123456702 please": "IBAN",
+            "pay to PK36 SCBL 0000 0011 2345 6702": "IBAN",
+            "NTN 4471928-3": "ID or account number",
         }
         for text, label in cases.items():
             with self.subTest(text=text):
@@ -106,7 +112,8 @@ class OutboundCheck(unittest.TestCase):
     def test_keeps_ordinary_household_text(self):
         for text in ["Call (310) 555-0199 for repairs", "Rent is $4,850, late after the 5th",
                      "Flu shots on October 10, 10-11 am", "Filter size 16x25x1, due 2026-09-01",
-                     "The account holder is Dana", "4111 1111 1111 1112 fails the checksum"]:
+                     "The account holder is Dana", "4111 1111 1111 1112 fails the checksum",
+                     "Call me on 0300-1234567", "The HSBC office on MM Alam Road"]:
             with self.subTest(text=text):
                 r = self.scrub(text)
                 self.assertEqual(r["out"], text)
@@ -240,6 +247,66 @@ class Nodes(unittest.TestCase):
         r = run_js(build.CHECK_EVENT, {"statusCode": 500}, nodes)
         self.assertFalse(r["ok"])
         self.assertIn("cannot be created twice", r["error"])
+
+
+def fathom_meeting(rid, transcript=True, **kw):
+    m = {"recording_id": rid, "title": "Impromptu Google Meet", "meeting_title": "Weekly check-in",
+         "created_at": "2026-09-27T20:10:00Z", "recording_start_time": "2026-09-27T20:00:00Z",
+         "calendar_invitees": [{"name": "Usman"}, {"name": None}],
+         "transcript": [{"speaker": {"display_name": "Usman"}, "text": "Dentist Thursday at four.", "timestamp": "00:00:05"},
+                        {"speaker": {"display_name": "Umer"}, "text": "Fine.", "timestamp": "00:00:09"}] if transcript else []}
+    m.update(kw)
+    return m
+
+
+@unittest.skipUnless(NODE, "Node.js is not installed")
+class FathomPoller(unittest.TestCase):
+    CFG = {"Poller config": {"timezone": "Asia/Karachi", "lookbackHours": 48,
+                             "meetingWebhook": "http://localhost:5678/webhook/meeting-transcript"}}
+
+    def poll(self, meetings, static=None, **reply):
+        return run_js(build.POLL_NEW, {"items": meetings, **reply}, self.CFG, static=static)
+
+    def test_new_meeting_becomes_a_transcript_request(self):
+        r = self.poll([fathom_meeting(101)])
+        self.assertTrue(r["ok"], r.get("error"))
+        body = r["result"][0]["json"]["body"]
+        self.assertEqual(body["meeting_id"], "fathom-101")
+        self.assertEqual(body["title"], "Weekly check-in")
+        self.assertEqual(body["attendees"], ["Usman"])
+        self.assertEqual(body["transcript"], "Usman: Dentist Thursday at four.\nUmer: Fine.")
+        # 20:00 UTC on the 27th is 01:00 on the 28th in Lahore: the date follows the time zone.
+        self.assertEqual(body["date"], "2026-09-28")
+
+    def test_skips_sent_meetings_and_unready_transcripts(self):
+        r = self.poll([fathom_meeting(101), fathom_meeting(102, transcript=False), fathom_meeting(103)],
+                      static={"sent": {"fathom-101": 1}})
+        self.assertEqual([i["json"]["key"] for i in r["result"]], ["fathom-103"])
+        self.assertIn("fathom_transcript_not_ready", [l["step"] for l in r["logs"]])
+
+    def test_speakers_stand_in_when_there_are_no_invitees(self):
+        r = self.poll([fathom_meeting(104, calendar_invitees=[])])
+        self.assertEqual(r["result"][0]["json"]["body"]["attendees"], ["Usman", "Umer"])
+
+    def test_unexpected_reply_fails_loudly(self):
+        r = run_js(build.POLL_NEW, {"error": "unauthorized"}, self.CFG)
+        self.assertFalse(r["ok"])
+        self.assertIn("no list of meetings", r["error"])
+
+    def test_remembers_only_after_sending_and_forgets_old_entries(self):
+        old = 1  # 1970: long past the 30-day window
+        r = run_js(build.POLL_REMEMBER, nodes={"New meetings only": [{"key": "fathom-5"}, {"key": "fathom-6"}]},
+                   static={"sent": {"fathom-1": old}})
+        self.assertTrue(r["ok"], r.get("error"))
+        self.assertEqual(sorted(r["staticData"]["sent"]), ["fathom-5", "fathom-6"])
+
+    def test_poller_hands_meetings_to_the_same_webhook(self):
+        wf = build.fathom_workflow()
+        nodes = {n["name"]: n for n in wf["nodes"]}
+        webhook = next(n for n in build.main_workflow()["nodes"] if n["type"].endswith(".webhook"))
+        cfg = {a["name"]: a["value"] for a in nodes["Poller config"]["parameters"]["assignments"]["assignments"]}
+        self.assertTrue(cfg["meetingWebhook"].endswith("/webhook/" + webhook["parameters"]["path"]))
+        self.assertEqual(nodes["Ask Fathom for recent meetings"]["parameters"]["method"], "GET")
 
 
 if __name__ == "__main__":

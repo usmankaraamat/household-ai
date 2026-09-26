@@ -13,7 +13,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      # Standard library only, so there is nothing to install. No model or account is
-      # needed: the benchmark tests re-score saved answers, and the workflow tests run
-      # each n8n Code node under Node with its inputs mocked.
+      # The project itself is standard library only; pypdf is for converting PDFs. No model
+      # or account is needed: the benchmark tests re-score saved answers, and the workflow
+      # tests run each n8n Code node under Node with its inputs mocked.
+      - run: pip install pypdf
       - run: python -m unittest discover -s tests -v

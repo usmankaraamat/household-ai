@@ -69,6 +69,7 @@ It takes a few seconds. The index stays on the home computer.
 | "Stopped before sending: the payload still contains …" | Something that looks like an ID or account number was about to leave the house | Nothing was written. Tell the person who looks after the system |
 | "… is not one of the approval choices" | The approval form was answered in an unexpected way | Nothing was written. Retry the run and choose one of the three options |
 | Answers are very slow | The model is dealing with a lot of text at once, or something else is using the computer heavily | Wait. If it happens often, tell the person who looks after the system |
+| A meeting from Fathom hasn't shown up after 20 minutes | Fathom hasn't finished the transcript yet, or the poller isn't published | Look for `fathom_transcript_not_ready` in the log (it will arrive on a later check). If there's no `fathom_checked` at all, publish the **Fathom meetings in** workflow |
 | Anything failed | Every failure is logged, and the run is kept | In n8n, open **Executions**, open the red one, fix the cause from this table, and click **Retry**. Retrying is always safe: it finds the Notion page and calendar draft it already made instead of making them twice |
 
 **Nothing falls back to the cloud when the home computer has a problem.** A failed meeting

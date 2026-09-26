@@ -1,6 +1,7 @@
 """Ask a question of the household documents, answered by a local model.
 
     python -m search.ask "When is Leo's next flu shot due?" --model granite4.2:8b
+    python -m search.ask "When does my passport expire?" --docs personal
 
 The question, the retrieved sections and the answer never leave this machine.
 """
@@ -26,8 +27,8 @@ def _cosine(a, b):
     return dot / (math.sqrt(sum(x * x for x in a)) * math.sqrt(sum(y * y for y in b)))
 
 
-def retrieve(question, index=None, k=5):
-    index = index or load()
+def retrieve(question, index=None, k=5, docs="sample"):
+    index = index or load(docs)
     _, prefix = doc_prefix(index["embed_model"])
     qvec = embed([prefix + question], model=index["embed_model"])[0]
     ranked = sorted(index["chunks"], key=lambda c: _cosine(qvec, c["vec"]), reverse=True)
@@ -61,10 +62,12 @@ if __name__ == "__main__":
     p.add_argument("--model", default="granite4.2:8b")
     p.add_argument("--backend", default="ollama", choices=["ollama", "openai"])
     p.add_argument("--k", type=int, default=5, help="sections to retrieve")
+    p.add_argument("--docs", choices=["sample", "personal"], default="sample",
+                   help="which documents to search (build the index first with search.index)")
     p.add_argument("--think", action="store_true", help="let thinking models reason first (slower)")
     a = p.parse_args()
     think = None if a.backend != "ollama" else a.think
-    r = answer(a.question, a.model, hits=retrieve(a.question, k=a.k), backend=a.backend, think=think)
+    r = answer(a.question, a.model, hits=retrieve(a.question, k=a.k, docs=a.docs), backend=a.backend, think=think)
     if not r["answer"] and r["stats"].get("stop") == "length":
         r["answer"] = "(No answer: the model ran out of output tokens, probably while thinking.)"
     print(r["answer"])
