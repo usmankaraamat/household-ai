@@ -6,9 +6,10 @@ record whether the model finds it, how fast it reads and answers, and how much
 of the model still fits in VRAM, because the memory for the context grows with
 its size.
 
-The last test overfills the context on purpose. By default Ollama cuts off the
-oldest part of an over-long prompt without an error, and this shows what that
-looks like.
+The last test overfills the context on purpose, to record what the server does.
+Older Ollama versions silently cut off the start of the prompt. Ollama 0.34
+refuses the request with an "exceeds the available context size" error, which is
+safer, but the caller must handle it.
 
     python -m bench.context
     python -m bench.context --sizes 4096 8192 --model granite4.2:8b
@@ -17,6 +18,7 @@ import argparse
 import datetime
 import json
 import sys
+import urllib.error
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -49,7 +51,13 @@ def haystack(target_tokens, depth):
 def probe(model, num_ctx, fill_tokens, depth, think):
     messages = [{"role": "system", "content": SYSTEM},
                 {"role": "user", "content": f"{haystack(fill_tokens, depth)}\n\nQuestion: {QUESTION}"}]
-    text, stats = chat(messages, model, num_ctx=num_ctx, think=think, max_tokens=80)
+    try:
+        text, stats = chat(messages, model, num_ctx=num_ctx, think=think, max_tokens=80)
+    except urllib.error.HTTPError as e:
+        error = e.read().decode(errors="replace")
+        return {"num_ctx": num_ctx, "fill_tokens": fill_tokens, "depth": depth, "found": False,
+                "answer": f"SERVER REFUSED ({e.code}): {error[:200]}", "on_gpu": None, "loaded_gb": None,
+                "prompt_tokens": None, "prefill_tps": None, "decode_tps": None}
     share, size_gb = gpu_share(model)
     return {"num_ctx": num_ctx, "fill_tokens": fill_tokens, "depth": depth, "found": "flowerpot" in text.lower(),
             "answer": text[:120], "on_gpu": share, "loaded_gb": size_gb, **stats}

@@ -24,7 +24,8 @@ const cfg = $('Config').first().json;
 const m = cfg.body || {};
 if (!m.title || !m.transcript) throw new Error('The request needs a title and a transcript');
 
-// Never let the model quietly drop the end of a long meeting: stop and say so instead.
+// Ollama refuses prompts longer than its context. Catch that here, before the model call,
+// with a message the family can act on (older Ollama versions silently cut the text instead).
 const estTokens = Math.ceil(m.transcript.length / 3.6);
 if (estTokens > cfg.numCtx * 0.75) {
   log('rejected_too_long', { title: m.title, est_tokens: estTokens, num_ctx: cfg.numCtx });
