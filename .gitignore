@@ -1,0 +1,13 @@
+# secrets and local state
+.env
+*.env
+credentials*
+token*.json
+.venv/
+__pycache__/
+node_modules/
+# model files and n8n state are large and machine-specific
+models/
+*.gguf
+n8n-data/
+bench/results/*.raw.json
