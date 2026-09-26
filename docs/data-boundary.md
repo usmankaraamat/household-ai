@@ -42,7 +42,10 @@ exception is written down here, with the reason.
    others read, calendar invites, and later, emails.
 4. **Keys stay home.** API keys live in n8n's encrypted store on the Mac mini, never in
    Notion or in documents.
-5. **No open doors.** Remote access goes through a private network (e.g. Tailscale), not
+5. **Encrypted at rest.** The Mac mini's disk is encrypted (FileVault), and backups are
+   encrypted *before* they leave the house, so a stolen machine or a leaked backup
+   reveals nothing.
+6. **No open doors.** Remote access goes through a private network (e.g. Tailscale), not
    open ports on the home router.
 
 ## Known limits, stated plainly

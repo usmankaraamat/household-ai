@@ -1,0 +1,48 @@
+{
+  "id": "hhErrorHandler01",
+  "name": "Household errors",
+  "active": false,
+  "nodes": [
+    {
+      "id": "6d4a60eb-8617-5be8-8eff-5702908a9cc1",
+      "name": "A household workflow failed",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "6ac17552-184d-5080-9a89-9c032648b0f4",
+      "name": "Log the failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst log = (step, extra = {}) => fs.appendFileSync('/data/logs/household.jsonl',\n  JSON.stringify({ ts: new Date().toISOString(), workflow: $workflow.name, execution: $execution.id, step, ...extra }) + '\\n');\n\n// Runs when any household workflow fails after its retries. The failed run keeps its\n// data in n8n, so it can be retried from the Executions list once the cause is fixed.\nconst e = $input.first().json;\nlog('failed', {\n  failed_workflow: e.workflow && e.workflow.name,\n  failed_execution: e.execution && e.execution.id,\n  node: e.execution && e.execution.lastNodeExecuted,\n  error: e.execution && e.execution.error && e.execution.error.message,\n  open_in_n8n: e.execution && e.execution.url,\n});\n// Anything that alerts a person (email, phone) goes here: say what failed, never the content.\nreturn $input.all();\n"
+      }
+    }
+  ],
+  "connections": {
+    "A household workflow failed": {
+      "main": [
+        [
+          {
+            "node": "Log the failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

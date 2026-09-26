@@ -1,0 +1,442 @@
+{
+  "id": "mtgToNotion00001",
+  "name": "Meeting notes to Notion",
+  "active": false,
+  "nodes": [
+    {
+      "id": "2a90be25-0f75-5eef-92ec-de69fb4aefa2",
+      "name": "Transcript arrives",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "meeting-transcript",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "webhookId": "26ccd51d-846c-50a5-a835-c3bad6644e53"
+    },
+    {
+      "id": "835e9a3e-15c5-537a-bb88-b34944a5e58e",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        300
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "512cbf22-a9a7-57ba-a2cd-5201a5ef03b3",
+              "name": "model",
+              "value": "granite4.2:8b",
+              "type": "string"
+            },
+            {
+              "id": "7e2e23e3-b08d-52cd-b1a9-7284d26fa373",
+              "name": "disableThinking",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "98d81fa6-62d8-5a8a-8cd7-094c74fb2731",
+              "name": "ollamaUrl",
+              "value": "http://host.docker.internal:11434",
+              "type": "string"
+            },
+            {
+              "id": "827dfaff-1853-5552-8f19-e27004b9ec78",
+              "name": "numCtx",
+              "value": 16384,
+              "type": "number"
+            },
+            {
+              "id": "11a46cc3-b23a-5c24-9628-dc20269ce5fa",
+              "name": "notionDatabaseId",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "b8889e5a-dffd-53f1-be90-501400587e03",
+              "name": "notionTitleProperty",
+              "value": "Name",
+              "type": "string"
+            },
+            {
+              "id": "fad64312-d649-5133-acc9-c1e2dfebad68",
+              "name": "notionDateProperty",
+              "value": "Date",
+              "type": "string"
+            },
+            {
+              "id": "653ab7f2-c8c2-5d92-9f80-3adf93f66d0b",
+              "name": "calendarId",
+              "value": "primary",
+              "type": "string"
+            },
+            {
+              "id": "6035b851-c457-503d-8739-0b54b5ea6b35",
+              "name": "timezone",
+              "value": "America/Los_Angeles",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "508b91bd-ed19-5e15-a935-6a12f657934e",
+      "name": "Check transcript",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst log = (step, extra = {}) => fs.appendFileSync('/data/logs/household.jsonl',\n  JSON.stringify({ ts: new Date().toISOString(), workflow: $workflow.name, execution: $execution.id, step, ...extra }) + '\\n');\n\nconst cfg = $('Config').first().json;\nconst m = cfg.body || {};\nif (!m.title || !m.transcript) throw new Error('The request needs a title and a transcript');\n\n// Never let the model quietly drop the end of a long meeting: stop and say so instead.\nconst estTokens = Math.ceil(m.transcript.length / 3.6);\nif (estTokens > cfg.numCtx * 0.75) {\n  log('rejected_too_long', { title: m.title, est_tokens: estTokens, num_ctx: cfg.numCtx });\n  throw new Error(`This transcript is about ${estTokens} tokens and the model is set to ${cfg.numCtx}. Raise numCtx in Config, or split the meeting.`);\n}\nlog('received', { title: m.title, chars: m.transcript.length, est_tokens: estTokens });\n\nconst SYSTEM = `You summarize a family's meeting transcript for their shared notes. Use only what was said.\nReturn JSON with:\n- summary: 2 to 4 plain sentences.\n- decisions: what was agreed, one short line each.\n- action_items: one per task, with owner (first name), task, and due (YYYY-MM-DD if a date was said, otherwise \"\").\n- event: if they agreed on a specific appointment with a date and a time, needed=true with title, date (YYYY-MM-DD), start and end (HH:MM, 24-hour). Otherwise needed=false and empty strings.\nThe meeting date is given, so resolve words like \"Friday\" or \"the 10th\" to real dates.`;\n\nconst str = { type: 'string' };\nconst schema = {\n  type: 'object',\n  properties: {\n    summary: str,\n    decisions: { type: 'array', items: str },\n    action_items: { type: 'array', items: { type: 'object', properties: { owner: str, task: str, due: str }, required: ['owner', 'task', 'due'] } },\n    event: { type: 'object', properties: { needed: { type: 'boolean' }, title: str, date: str, start: str, end: str }, required: ['needed', 'title', 'date', 'start', 'end'] },\n  },\n  required: ['summary', 'decisions', 'action_items', 'event'],\n};\n\nconst request = {\n  model: cfg.model,\n  stream: false,\n  format: schema,\n  options: { num_ctx: cfg.numCtx, temperature: 0 },\n  messages: [\n    { role: 'system', content: SYSTEM },\n    { role: 'user', content: `Meeting: ${m.title}\\nDate: ${m.date}\\nAttendees: ${(m.attendees || []).join(', ')}\\n\\nTranscript:\\n${m.transcript}` },\n  ],\n};\nif (cfg.disableThinking) request.think = false;\nreturn [{ json: { meeting: { title: m.title, date: m.date, attendees: m.attendees || [] }, request } }];\n"
+      }
+    },
+    {
+      "id": "1e9a13a6-8e83-524c-8bb9-da857e028ea7",
+      "name": "Summarize at home (Ollama)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.ollamaUrl }}/api/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.request) }}",
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "e48c1f0c-b41c-55ab-89c3-c98d3dd7f0d7",
+      "name": "Check summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst log = (step, extra = {}) => fs.appendFileSync('/data/logs/household.jsonl',\n  JSON.stringify({ ts: new Date().toISOString(), workflow: $workflow.name, execution: $execution.id, step, ...extra }) + '\\n');\n\nconst r = $input.first().json;\nconst meeting = $('Check transcript').first().json.meeting;\nlet s;\ntry {\n  s = JSON.parse(r.message.content);\n} catch (e) {\n  log('bad_model_output', { title: meeting.title });\n  throw new Error('The home model did not return valid JSON. Retry the execution, or try another model in Config.');\n}\nif (typeof s.summary !== 'string' || !Array.isArray(s.action_items)) throw new Error('The summary is missing required fields');\n\nconst ev = s.event || {};\nconst event = ev.needed && /^\\d{4}-\\d{2}-\\d{2}$/.test(ev.date) && /^\\d{2}:\\d{2}$/.test(ev.start) && /^\\d{2}:\\d{2}$/.test(ev.end) ? ev : null;\nlog('summarized', {\n  title: meeting.title, model: r.model, prompt_tokens: r.prompt_eval_count, output_tokens: r.eval_count,\n  seconds: +(r.total_duration / 1e9).toFixed(1), event_proposed: !!event,\n});\n\nconst lines = [\n  s.summary, '',\n  'Decisions:', ...(s.decisions || []).map(d => `- ${d}`), '',\n  'Action items:', ...s.action_items.map(a => `- ${a.owner}: ${a.task}${a.due ? ` (by ${a.due})` : ''}`), '',\n  event ? `Proposed calendar draft: ${event.title}, ${event.date} ${event.start}-${event.end}` : 'No calendar event proposed.',\n];\nreturn [{ json: { meeting, summary: s, event, model: r.model, review: lines.join('\\n') } }];\n"
+      }
+    },
+    {
+      "id": "5acd8bbf-5e30-58eb-b715-c5d4dac8113d",
+      "name": "Ask for approval",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst log = (step, extra = {}) => fs.appendFileSync('/data/logs/household.jsonl',\n  JSON.stringify({ ts: new Date().toISOString(), workflow: $workflow.name, execution: $execution.id, step, ...extra }) + '\\n');\n\n// Anything that sends this link to a phone (Gmail, Telegram, ntfy) goes here. Send the\n// title and the link only: the summary stays on the home machine until someone approves it.\nconst item = $input.first().json;\nlog('awaiting_approval', { title: item.meeting.title, approve_url: $execution.resumeFormUrl });\nreturn [{ json: item }];\n"
+      }
+    },
+    {
+      "id": "b377bee2-f03d-51b8-a3bf-b765fce2c0de",
+      "name": "Wait for approval",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1320,
+        300
+      ],
+      "parameters": {
+        "resume": "form",
+        "formTitle": "Approve meeting notes",
+        "formDescription": "={{ $json.review }}",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Decision",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Approve notes and calendar draft"
+                  },
+                  {
+                    "option": "Approve notes only"
+                  },
+                  {
+                    "option": "Reject"
+                  }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "Note for the log",
+              "fieldType": "textarea"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "e0933307-6b95-5eae-844b-132c5c030db1",
+      "name": "Build Notion page",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst log = (step, extra = {}) => fs.appendFileSync('/data/logs/household.jsonl',\n  JSON.stringify({ ts: new Date().toISOString(), workflow: $workflow.name, execution: $execution.id, step, ...extra }) + '\\n');\n\nconst form = $input.first().json;\nconst prev = $('Check summary').first().json;\nconst cfg = $('Config').first().json;\nconst title = prev.meeting.title;\nif (form.Decision === 'Reject') {\n  log('rejected_by_person', { title, note: form['Note for the log'] || '' });\n  return [];\n}\nlog('approved', { title, decision: form.Decision, note: form['Note for the log'] || '' });\nif (!cfg.notionDatabaseId) throw new Error('Set notionDatabaseId in the Config node');\n\nconst rich = t => [{ type: 'text', text: { content: String(t).slice(0, 1900) } }];\nconst block = (type, t, extra = {}) => ({ object: 'block', type, [type]: { rich_text: rich(t), ...extra } });\nconst s = prev.summary;\nconst children = [\n  block('heading_2', 'Summary'), block('paragraph', s.summary),\n  block('heading_2', 'Decisions'), ...(s.decisions || []).map(d => block('bulleted_list_item', d)),\n  block('heading_2', 'Action items'),\n  ...s.action_items.map(a => block('to_do', `${a.owner}: ${a.task}${a.due ? ` (by ${a.due})` : ''}`, { checked: false })),\n  block('paragraph', `Summarized at home by ${prev.model}. The transcript is not stored in Notion.`),\n];\nconst properties = {\n  [cfg.notionTitleProperty]: { title: rich(title) },\n  [cfg.notionDateProperty]: { date: { start: prev.meeting.date } },\n};\nreturn [{ json: { decision: form.Decision, notionBody: { parent: { database_id: cfg.notionDatabaseId }, properties, children } } }];\n"
+      }
+    },
+    {
+      "id": "74577704-15e8-54cb-b0c1-64c2cfcbece7",
+      "name": "Create Notion page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.notion.com/v1/pages",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.notionBody) }}",
+        "options": {
+          "timeout": 60000
+        },
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "notionApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Notion-Version",
+              "value": "2022-06-28"
+            }
+          ]
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "28666115-f18d-5912-95fb-6ea50e98ee57",
+      "name": "Build calendar draft",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst log = (step, extra = {}) => fs.appendFileSync('/data/logs/household.jsonl',\n  JSON.stringify({ ts: new Date().toISOString(), workflow: $workflow.name, execution: $execution.id, step, ...extra }) + '\\n');\n\nconst page = $input.first().json;\nconst prev = $('Check summary').first().json;\nconst cfg = $('Config').first().json;\nconst decision = $('Build Notion page').first().json.decision;\nlog('notion_page_created', { title: prev.meeting.title, notion_url: page.url });\n\nif (decision !== 'Approve notes and calendar draft' || !prev.event) {\n  log('done', { title: prev.meeting.title, calendar: 'skipped' });\n  return [];\n}\nconst ev = prev.event;\n// No attendees and status \"tentative\": a draft only the family sees. Nobody gets invited.\nreturn [{ json: { calendarBody: {\n  summary: `[Draft] ${ev.title}`,\n  status: 'tentative',\n  description: `Proposed in \"${prev.meeting.title}\" (${prev.meeting.date}). Notes: ${page.url}`,\n  start: { dateTime: `${ev.date}T${ev.start}:00`, timeZone: cfg.timezone },\n  end: { dateTime: `${ev.date}T${ev.end}:00`, timeZone: cfg.timezone },\n} } }];\n"
+      }
+    },
+    {
+      "id": "62df366b-50b1-5cc0-9e17-1088790fa45a",
+      "name": "Create draft event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2200,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://www.googleapis.com/calendar/v3/calendars/{{ encodeURIComponent($('Config').first().json.calendarId) }}/events?sendUpdates=none",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.calendarBody) }}",
+        "options": {
+          "timeout": 60000
+        },
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleCalendarOAuth2Api"
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "763e82cf-5a54-5505-8d76-9df880a3966e",
+      "name": "Log done",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2420,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst log = (step, extra = {}) => fs.appendFileSync('/data/logs/household.jsonl',\n  JSON.stringify({ ts: new Date().toISOString(), workflow: $workflow.name, execution: $execution.id, step, ...extra }) + '\\n');\n\nconst ev = $input.first().json;\nlog('done', { title: $('Check summary').first().json.meeting.title, calendar: 'draft created', event_link: ev.htmlLink });\nreturn $input.all();\n"
+      }
+    },
+    {
+      "id": "96babc26-fb89-582f-ac68-1a418966f6aa",
+      "name": "What leaves the house",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        440,
+        20
+      ],
+      "parameters": {
+        "width": 900,
+        "height": 220,
+        "content": "## What leaves the house\nThe transcript goes only to Ollama on this machine. After a person approves, Notion gets the short summary and Google Calendar gets a tentative draft with no guests. Every step is logged to logs/household.jsonl, and failures go to the Household errors workflow. See docs/data-boundary.md."
+      }
+    }
+  ],
+  "connections": {
+    "Transcript arrives": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Check transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check transcript": {
+      "main": [
+        [
+          {
+            "node": "Summarize at home (Ollama)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize at home (Ollama)": {
+      "main": [
+        [
+          {
+            "node": "Check summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check summary": {
+      "main": [
+        [
+          {
+            "node": "Ask for approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask for approval": {
+      "main": [
+        [
+          {
+            "node": "Wait for approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for approval": {
+      "main": [
+        [
+          {
+            "node": "Build Notion page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Notion page": {
+      "main": [
+        [
+          {
+            "node": "Create Notion page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Notion page": {
+      "main": [
+        [
+          {
+            "node": "Build calendar draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build calendar draft": {
+      "main": [
+        [
+          {
+            "node": "Create draft event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create draft event": {
+      "main": [
+        [
+          {
+            "node": "Log done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "hhErrorHandler01",
+    "saveManualExecutions": true
+  },
+  "pinData": {}
+}

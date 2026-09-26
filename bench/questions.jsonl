@@ -1,0 +1,21 @@
+{"id": "q01", "kind": "fact", "q": "How much is our rent, and when does a late fee kick in?", "expect": [["4850"], ["150"], ["5th", "fifth"]], "sources": ["lease.md"]}
+{"id": "q02", "kind": "fact", "q": "How much notice do we have to give before moving out?", "expect": [["60 days", "60-day", "sixty days"]], "sources": ["lease.md"]}
+{"id": "q03", "kind": "fact", "q": "Are we allowed to get a second dog?", "expect": [["one dog", "only one", "1 dog", "single dog"]], "sources": ["lease.md"]}
+{"id": "q04", "kind": "fact", "q": "What's the collision deductible on the Sienna?", "expect": [["1000"]], "sources": ["auto-insurance.md"]}
+{"id": "q05", "kind": "fact", "q": "What number do I call if the car won't start and I need a tow?", "expect": [["555-0177"]], "sources": ["auto-insurance.md"]}
+{"id": "q06", "kind": "fact", "q": "How much do we pay to see a specialist?", "expect": [["$60", "60 copay", "60 dollars"]], "sources": ["health-plan-summary.md"]}
+{"id": "q07", "kind": "trap", "q": "What's our family health insurance deductible?", "expect": [["3000"]], "sources": ["health-plan-summary.md"]}
+{"id": "q08", "kind": "fact", "q": "What is Ava allergic to, and where is her EpiPen kept at school?", "expect": [["tree nut"], ["nurse"]], "sources": ["school-enrollment-ava.md"]}
+{"id": "q09", "kind": "fact", "q": "Who is allowed to pick Ava up from school?", "expect": [["rosa"], ["linda"], ["dana"], ["chris"]], "sources": ["school-enrollment-ava.md"]}
+{"id": "q10", "kind": "fact", "q": "When does winter break start, and when does school start again?", "expect": [["december 21", "dec 21", "12/21"], ["january 4", "jan 4", "1/4"]], "sources": ["school-calendar-2026-27.md"]}
+{"id": "q11", "kind": "fact", "q": "When is Leo's next flu shot due?", "expect": [["october"]], "sources": ["pediatrician-visit-leo.md"]}
+{"id": "q12", "kind": "fact", "q": "What allergy medicine is Leo on, and what's the dose?", "expect": [["cetirizine"], ["5 mg", "5mg"]], "sources": ["pediatrician-visit-leo.md"]}
+{"id": "q13", "kind": "fact", "q": "When does our internet promo price end, and what will we pay after that?", "expect": [["october 31", "oct 31", "10/31", "november 1", "nov 1"], ["85"]], "sources": ["internet-contract.md"]}
+{"id": "q14", "kind": "multi", "q": "Is the HVAC air filter overdue for a change, and what size do we need to buy?", "expect": [["overdue", "yes", "past due"], ["16x25x1", "16 x 25 x 1"]], "sources": ["hvac-service-record.md"]}
+{"id": "q15", "kind": "multi", "q": "The air conditioning just stopped working. Who should we call?", "expect": [["555-0199"]], "sources": ["lease.md", "hvac-service-record.md"]}
+{"id": "q16", "kind": "fact", "q": "What is Rosa's hourly rate, and how is overtime paid?", "expect": [["28"], ["1.5", "time and a half", "time-and-a-half"]], "sources": ["nanny-agreement.md"]}
+{"id": "q17", "kind": "multi", "q": "What time does Rosa need to start work on Wednesdays?", "expect": [["12:45"]], "sources": ["nanny-agreement.md", "school-calendar-2026-27.md"]}
+{"id": "q18", "kind": "multi", "q": "If we fly abroad at the start of winter break, whose passports need renewing first under our own travel rule?", "expect": [["ava"], ["chris"]], "sources": ["passports.md", "school-calendar-2026-27.md"]}
+{"id": "q19", "kind": "unanswerable", "q": "What's the deductible on our renters insurance?", "expect": [], "sources": []}
+{"id": "q20", "kind": "unanswerable", "q": "Who is Leo's teacher this year?", "expect": [], "sources": []}
+{"id": "q21", "kind": "unanswerable", "q": "When does our gym membership renew?", "expect": [], "sources": []}

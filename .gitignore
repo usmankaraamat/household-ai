@@ -11,3 +11,6 @@ models/
 *.gguf
 n8n-data/
 bench/results/*.raw.json
+# the search index holds document text and embeddings: it stays on the home machine
+search/index.json
+logs/*.jsonl
