@@ -1,0 +1,1285 @@
+{
+ "args": {
+  "model": null,
+  "backend": "ollama",
+  "k": 5,
+  "num_ctx": 8192,
+  "n": 21
+ },
+ "retrieval_recall": "18/18",
+ "summaries": [
+  {
+   "label": "Granite 4.2 8B Q4_K_M",
+   "model": "granite4.2:8b",
+   "accuracy": "20/21",
+   "by_kind": {
+    "fact": "13/13",
+    "trap": "1/1",
+    "multi": "3/4",
+    "unanswerable": "3/3"
+   },
+   "citations_ok": "17/18",
+   "invented_citations": 0,
+   "leaked_thinking": 1,
+   "cut_off": 0,
+   "median_seconds": 3.4,
+   "median_prefill_tps": 1032.8,
+   "median_decode_tps": 48.4,
+   "loaded_gb": 6.84,
+   "on_gpu": 0.916
+  },
+  {
+   "label": "Qwen3.5 9B Q4_K_M",
+   "model": "hf.co/unsloth/Qwen3.5-9B-GGUF:Q4_K_M",
+   "accuracy": "19/21",
+   "by_kind": {
+    "fact": "13/13",
+    "trap": "1/1",
+    "multi": "2/4",
+    "unanswerable": "3/3"
+   },
+   "citations_ok": "18/18",
+   "invented_citations": 0,
+   "leaked_thinking": 0,
+   "cut_off": 0,
+   "median_seconds": 3.4,
+   "median_prefill_tps": 940.6,
+   "median_decode_tps": 54.0,
+   "loaded_gb": 6.43,
+   "on_gpu": 0.879
+  }
+ ],
+ "detail": {
+  "granite4.2:8b": [
+   {
+    "answer": "Our rent is $4,850 per month, due on the 1st of each month. A late fee of $150 applies if rent is received after the 5th of the month.  \nSources: [lease.md]",
+    "cited": [
+     "lease.md"
+    ],
+    "retrieved": [
+     "lease.md",
+     "lease.md",
+     "lease.md",
+     "internet-contract.md",
+     "internet-contract.md"
+    ],
+    "stats": {
+     "prompt_tokens": 567,
+     "cached_tokens": 3,
+     "output_tokens": 50,
+     "prefill_tps": 1837.1,
+     "decode_tps": 47.3,
+     "stop": "stop",
+     "seconds": 3.44,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q01",
+    "kind": "fact",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "Tenants must give at least 60 days' written notice before vacating.  \nSources: [lease.md]",
+    "cited": [
+     "lease.md"
+    ],
+    "retrieved": [
+     "lease.md",
+     "lease.md",
+     "nanny-agreement.md",
+     "nanny-agreement.md",
+     "passports.md"
+    ],
+    "stats": {
+     "prompt_tokens": 502,
+     "cached_tokens": 138,
+     "output_tokens": 26,
+     "prefill_tps": 916.4,
+     "decode_tps": 48.4,
+     "stop": "stop",
+     "seconds": 3.0,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q02",
+    "kind": "fact",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "No, only one dog under 40\u202flb is permitted under the lease; no other pets are allowed without written approval. Sources: [lease.md]",
+    "cited": [
+     "lease.md"
+    ],
+    "retrieved": [
+     "lease.md",
+     "nanny-agreement.md",
+     "auto-insurance.md",
+     "nanny-agreement.md",
+     "pediatrician-visit-leo.md"
+    ],
+    "stats": {
+     "prompt_tokens": 474,
+     "cached_tokens": 138,
+     "output_tokens": 34,
+     "prefill_tps": 874.6,
+     "decode_tps": 47.8,
+     "stop": "stop",
+     "seconds": 3.18,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q03",
+    "kind": "fact",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "The collision deductible on the Sienna is $1,000.  \nSources: [auto-insurance.md]",
+    "cited": [
+     "auto-insurance.md"
+    ],
+    "retrieved": [
+     "auto-insurance.md",
+     "auto-insurance.md",
+     "auto-insurance.md",
+     "auto-insurance.md",
+     "health-plan-summary.md"
+    ],
+    "stats": {
+     "prompt_tokens": 712,
+     "cached_tokens": 110,
+     "output_tokens": 25,
+     "prefill_tps": 1106.9,
+     "decode_tps": 48.4,
+     "stop": "stop",
+     "seconds": 3.14,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q04",
+    "kind": "fact",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "Call 1-800-555-0177 for roadside assistance, which includes towing up to 15 miles for up to 3 tows per policy year. Sources: [auto-insurance.md]",
+    "cited": [
+     "auto-insurance.md"
+    ],
+    "retrieved": [
+     "auto-insurance.md",
+     "internet-contract.md",
+     "auto-insurance.md",
+     "school-enrollment-ava.md",
+     "health-plan-summary.md"
+    ],
+    "stats": {
+     "prompt_tokens": 497,
+     "cached_tokens": 128,
+     "output_tokens": 500,
+     "prefill_tps": 936.0,
+     "decode_tps": 47.0,
+     "stop": "stop",
+     "seconds": 13.14,
+     "leaked_thinking": true
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q05",
+    "kind": "fact",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "We pay $60 for a specialist visit.  \nSources: [health-plan-summary.md]",
+    "cited": [
+     "health-plan-summary.md"
+    ],
+    "retrieved": [
+     "health-plan-summary.md",
+     "health-plan-summary.md",
+     "internet-contract.md",
+     "internet-contract.md",
+     "pediatrician-visit-leo.md"
+    ],
+    "stats": {
+     "prompt_tokens": 642,
+     "cached_tokens": 110,
+     "output_tokens": 23,
+     "prefill_tps": 1217.1,
+     "decode_tps": 50.1,
+     "stop": "stop",
+     "seconds": 3.03,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q06",
+    "kind": "fact",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "Our family health insurance deductible is $3,000.  \nSources: [health-plan-summary.md]",
+    "cited": [
+     "health-plan-summary.md"
+    ],
+    "retrieved": [
+     "health-plan-summary.md",
+     "health-plan-summary.md",
+     "health-plan-summary.md",
+     "auto-insurance.md",
+     "health-plan-summary.md"
+    ],
+    "stats": {
+     "prompt_tokens": 654,
+     "cached_tokens": 387,
+     "output_tokens": 25,
+     "prefill_tps": 884.5,
+     "decode_tps": 48.3,
+     "stop": "stop",
+     "seconds": 2.88,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q07",
+    "kind": "trap",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "Ava is allergic to tree nuts (severe). Her EpiPen is kept in the nurse's office and expires in February 2027.  \nSources: [school-enrollment-ava.md]",
+    "cited": [
+     "school-enrollment-ava.md"
+    ],
+    "retrieved": [
+     "school-enrollment-ava.md",
+     "school-enrollment-ava.md",
+     "pediatrician-visit-leo.md",
+     "school-enrollment-ava.md",
+     "pediatrician-visit-leo.md"
+    ],
+    "stats": {
+     "prompt_tokens": 498,
+     "cached_tokens": 110,
+     "output_tokens": 45,
+     "prefill_tps": 922.3,
+     "decode_tps": 49.4,
+     "stop": "stop",
+     "seconds": 3.4,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q08",
+    "kind": "fact",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "Dana Marlowe, Chris Marlowe, Rosa Delgado (nanny), and Linda Marlowe are authorized to pick up Ava; anyone else needs a written note from a parent and photo ID. Sources: [school-enrollment-ava.md] [nanny-agreement.md] [school-enrollment-ava.md]",
+    "cited": [
+     "nanny-agreement.md",
+     "school-enrollment-ava.md"
+    ],
+    "retrieved": [
+     "school-enrollment-ava.md",
+     "nanny-agreement.md",
+     "school-enrollment-ava.md",
+     "nanny-agreement.md",
+     "school-enrollment-ava.md"
+    ],
+    "stats": {
+     "prompt_tokens": 551,
+     "cached_tokens": 140,
+     "output_tokens": 75,
+     "prefill_tps": 958.9,
+     "decode_tps": 49.2,
+     "stop": "stop",
+     "seconds": 4.03,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q09",
+    "kind": "fact",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "Winter break starts on December 21, 2026, and school resumes on January 4, 2027.  \nSources: [school-calendar-2026-27.md]",
+    "cited": [
+     "school-calendar-2026-27.md"
+    ],
+    "retrieved": [
+     "school-calendar-2026-27.md",
+     "school-calendar-2026-27.md",
+     "school-calendar-2026-27.md",
+     "school-calendar-2026-27.md",
+     "nanny-agreement.md"
+    ],
+    "stats": {
+     "prompt_tokens": 564,
+     "cached_tokens": 112,
+     "output_tokens": 41,
+     "prefill_tps": 1027.5,
+     "decode_tps": 47.3,
+     "stop": "stop",
+     "seconds": 3.4,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q10",
+    "kind": "fact",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "Leo's annual flu vaccine is due in October 2026, as noted in the pediatrician visit summary.  \nSources: [pediatrician-visit-leo.md]",
+    "cited": [
+     "pediatrician-visit-leo.md"
+    ],
+    "retrieved": [
+     "pediatrician-visit-leo.md",
+     "pediatrician-visit-leo.md",
+     "passports.md",
+     "nanny-agreement.md",
+     "health-plan-summary.md"
+    ],
+    "stats": {
+     "prompt_tokens": 552,
+     "cached_tokens": 110,
+     "output_tokens": 38,
+     "prefill_tps": 1032.8,
+     "decode_tps": 48.1,
+     "stop": "stop",
+     "seconds": 3.3,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q11",
+    "kind": "fact",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "Cetirizine (children's), 5 mg by mouth once daily as needed for allergy symptoms.  \nSources: [pediatrician-visit-leo.md]",
+    "cited": [
+     "pediatrician-visit-leo.md"
+    ],
+    "retrieved": [
+     "pediatrician-visit-leo.md",
+     "pediatrician-visit-leo.md",
+     "school-enrollment-ava.md",
+     "pediatrician-visit-leo.md",
+     "pediatrician-visit-leo.md"
+    ],
+    "stats": {
+     "prompt_tokens": 489,
+     "cached_tokens": 131,
+     "output_tokens": 38,
+     "prefill_tps": 1121.9,
+     "decode_tps": 49.0,
+     "stop": "stop",
+     "seconds": 3.17,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q12",
+    "kind": "fact",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "The internet promo price ends on October 31, 2026. After that, starting November 1, 2026, the standard price is $85 per month, including the $5 autopay discount (so $90 without autopay).  \nSources: [internet-contract.md]",
+    "cited": [
+     "internet-contract.md"
+    ],
+    "retrieved": [
+     "internet-contract.md",
+     "internet-contract.md",
+     "passports.md",
+     "health-plan-summary.md",
+     "lease.md"
+    ],
+    "stats": {
+     "prompt_tokens": 529,
+     "cached_tokens": 110,
+     "output_tokens": 62,
+     "prefill_tps": 1139.0,
+     "decode_tps": 48.7,
+     "stop": "stop",
+     "seconds": 3.71,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q13",
+    "kind": "fact",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "Yes, the HVAC air filter is overdue for a change. The filter size is 16x25x1, MERV 11, and it should be replaced every 90 days. The last replacement was on June 3, 2026, so the next change is due by September 4, 2026 (90 days later).  \nSources: [hvac-service-record.md]",
+    "cited": [
+     "hvac-service-record.md"
+    ],
+    "retrieved": [
+     "hvac-service-record.md",
+     "hvac-service-record.md",
+     "lease.md",
+     "hvac-service-record.md",
+     "hvac-service-record.md"
+    ],
+    "stats": {
+     "prompt_tokens": 582,
+     "cached_tokens": 110,
+     "output_tokens": 85,
+     "prefill_tps": 1130.0,
+     "decode_tps": 48.8,
+     "stop": "stop",
+     "seconds": 4.29,
+     "leaked_thinking": false
+    },
+    "correct": false,
+    "cited_ok": true,
+    "id": "q14",
+    "kind": "multi",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "Call the landlord\u2019s emergency maintenance line at (310) 555-0199, as tenants should not hire their own contractors for HVAC repairs. The HVAC system was serviced on June 3, 2026, by Cooltech Heating & Air, and the labor warranty has ended. Sources: [hvac-service-record.md] [lease.md]",
+    "cited": [
+     "hvac-service-record.md",
+     "lease.md"
+    ],
+    "retrieved": [
+     "hvac-service-record.md",
+     "hvac-service-record.md",
+     "hvac-service-record.md",
+     "hvac-service-record.md",
+     "lease.md"
+    ],
+    "stats": {
+     "prompt_tokens": 575,
+     "cached_tokens": 132,
+     "output_tokens": 76,
+     "prefill_tps": 1287.2,
+     "decode_tps": 49.2,
+     "stop": "stop",
+     "seconds": 4.0,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q15",
+    "kind": "multi",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "Rosa's hourly rate is $28 per hour. Overtime is paid at 1.5 times the hourly rate for hours over 9 in a day or 40 in a week. Sources: [nanny-agreement.md]",
+    "cited": [
+     "nanny-agreement.md"
+    ],
+    "retrieved": [
+     "nanny-agreement.md",
+     "nanny-agreement.md",
+     "nanny-agreement.md",
+     "nanny-agreement.md",
+     "nanny-agreement.md"
+    ],
+    "stats": {
+     "prompt_tokens": 501,
+     "cached_tokens": 110,
+     "output_tokens": 51,
+     "prefill_tps": 861.4,
+     "decode_tps": 46.5,
+     "stop": "stop",
+     "seconds": 3.69,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q16",
+    "kind": "fact",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "Rosa needs to start 45 minutes before dismissal on early-release days, which occur every Wednesday at 1:30 pm. Therefore, she must start at 12:45 pm on Wednesdays.\n\nSources: [nanny-agreement.md] [school-calendar-2026-27.md]",
+    "cited": [
+     "nanny-agreement.md",
+     "school-calendar-2026-27.md"
+    ],
+    "retrieved": [
+     "nanny-agreement.md",
+     "nanny-agreement.md",
+     "nanny-agreement.md",
+     "school-calendar-2026-27.md",
+     "nanny-agreement.md"
+    ],
+    "stats": {
+     "prompt_tokens": 526,
+     "cached_tokens": 136,
+     "output_tokens": 69,
+     "prefill_tps": 896.3,
+     "decode_tps": 46.7,
+     "stop": "stop",
+     "seconds": 4.02,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q17",
+    "kind": "multi",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "Chris Marlowe's passport expires May 14, 2027, which is less than 6 months from the start of winter break (December 21, 2026). Dana Marlowe's passport expires March 22, 2029, which is more than 6 months away. Ava Marlowe (child, 5-year) expires February 3, 2027, and Leo Marlowe (child, 5-year) expires July 9, 2030. Under the rule, passports with less than 6 months left on the day we leave need renewing first. Since winter break starts December 21, 2026, Chris's passport (May 14, 2027) and Ava's (February 3, 2027) have less than 6 months left, while Dana's and Leo's do not. Children under 16 must renew in person with both parents.\n\nSources: [passports.md]",
+    "cited": [
+     "passports.md"
+    ],
+    "retrieved": [
+     "passports.md",
+     "passports.md",
+     "nanny-agreement.md",
+     "school-calendar-2026-27.md",
+     "hvac-service-record.md"
+    ],
+    "stats": {
+     "prompt_tokens": 615,
+     "cached_tokens": 110,
+     "output_tokens": 202,
+     "prefill_tps": 1114.9,
+     "decode_tps": 48.4,
+     "stop": "stop",
+     "seconds": 6.72,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": false,
+    "id": "q18",
+    "kind": "multi",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "NOT FOUND\n\nSources: [auto-insurance.md]",
+    "cited": [
+     "auto-insurance.md"
+    ],
+    "retrieved": [
+     "auto-insurance.md",
+     "auto-insurance.md",
+     "health-plan-summary.md",
+     "lease.md",
+     "lease.md"
+    ],
+    "stats": {
+     "prompt_tokens": 756,
+     "cached_tokens": 240,
+     "output_tokens": 14,
+     "prefill_tps": 104.3,
+     "decode_tps": 49.9,
+     "stop": "stop",
+     "seconds": 7.34,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": null,
+    "id": "q19",
+    "kind": "unanswerable",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "NOT FOUND\n\nSources: [pediatrician-visit-leo.md] [nanny-agreement.md] [school-enrollment-ava.md] [passports.md]",
+    "cited": [
+     "nanny-agreement.md",
+     "passports.md",
+     "pediatrician-visit-leo.md",
+     "school-enrollment-ava.md"
+    ],
+    "retrieved": [
+     "pediatrician-visit-leo.md",
+     "nanny-agreement.md",
+     "school-enrollment-ava.md",
+     "nanny-agreement.md",
+     "passports.md"
+    ],
+    "stats": {
+     "prompt_tokens": 577,
+     "cached_tokens": 110,
+     "output_tokens": 43,
+     "prefill_tps": 1185.2,
+     "decode_tps": 48.5,
+     "stop": "stop",
+     "seconds": 3.38,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": null,
+    "id": "q20",
+    "kind": "unanswerable",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "NOT FOUND\n\nSources: [passports.md] [lease.md] [hvac-service-record.md] [school-calendar-2026-27.md]",
+    "cited": [
+     "hvac-service-record.md",
+     "lease.md",
+     "passports.md",
+     "school-calendar-2026-27.md"
+    ],
+    "retrieved": [
+     "passports.md",
+     "lease.md",
+     "hvac-service-record.md",
+     "school-calendar-2026-27.md",
+     "school-calendar-2026-27.md"
+    ],
+    "stats": {
+     "prompt_tokens": 555,
+     "cached_tokens": 110,
+     "output_tokens": 40,
+     "prefill_tps": 1160.1,
+     "decode_tps": 50.0,
+     "stop": "stop",
+     "seconds": 3.27,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": null,
+    "id": "q21",
+    "kind": "unanswerable",
+    "invented_citations": [],
+    "invented": 0
+   }
+  ],
+  "hf.co/unsloth/Qwen3.5-9B-GGUF:Q4_K_M": [
+   {
+    "answer": "The monthly rent is $4,850, and a late fee of $150 applies if rent is received after the 5th of the month.\n\nSources: [lease.md]",
+    "cited": [
+     "lease.md"
+    ],
+    "retrieved": [
+     "lease.md",
+     "lease.md",
+     "lease.md",
+     "internet-contract.md",
+     "internet-contract.md"
+    ],
+    "stats": {
+     "prompt_tokens": 592,
+     "cached_tokens": 0,
+     "output_tokens": 42,
+     "prefill_tps": 858.2,
+     "decode_tps": 52.9,
+     "stop": "stop",
+     "seconds": 3.59,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q01",
+    "kind": "fact",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "You must give at least 60 days' written notice before vacating. Sources: [lease.md]",
+    "cited": [
+     "lease.md"
+    ],
+    "retrieved": [
+     "lease.md",
+     "lease.md",
+     "nanny-agreement.md",
+     "nanny-agreement.md",
+     "passports.md"
+    ],
+    "stats": {
+     "prompt_tokens": 504,
+     "cached_tokens": 104,
+     "output_tokens": 23,
+     "prefill_tps": 862.9,
+     "decode_tps": 54.3,
+     "stop": "stop",
+     "seconds": 3.02,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q02",
+    "kind": "fact",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "No, the lease only permits one dog under 40 lb, and any additional pets require written approval. Sources: [lease.md]",
+    "cited": [
+     "lease.md"
+    ],
+    "retrieved": [
+     "lease.md",
+     "nanny-agreement.md",
+     "auto-insurance.md",
+     "nanny-agreement.md",
+     "pediatrician-visit-leo.md"
+    ],
+    "stats": {
+     "prompt_tokens": 471,
+     "cached_tokens": 104,
+     "output_tokens": 29,
+     "prefill_tps": 903.1,
+     "decode_tps": 54.6,
+     "stop": "stop",
+     "seconds": 3.08,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q03",
+    "kind": "fact",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "The collision deductible for the 2021 Toyota Sienna is $1,000.\nSources: [auto-insurance.md]",
+    "cited": [
+     "auto-insurance.md"
+    ],
+    "retrieved": [
+     "auto-insurance.md",
+     "auto-insurance.md",
+     "auto-insurance.md",
+     "auto-insurance.md",
+     "health-plan-summary.md"
+    ],
+    "stats": {
+     "prompt_tokens": 765,
+     "cached_tokens": 104,
+     "output_tokens": 31,
+     "prefill_tps": 1017.5,
+     "decode_tps": 51.6,
+     "stop": "stop",
+     "seconds": 3.37,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q04",
+    "kind": "fact",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "You should call 1-800-555-0177 for roadside assistance, which covers up to 3 tows per policy year. Sources: [auto-insurance.md]",
+    "cited": [
+     "auto-insurance.md"
+    ],
+    "retrieved": [
+     "auto-insurance.md",
+     "internet-contract.md",
+     "auto-insurance.md",
+     "school-enrollment-ava.md",
+     "health-plan-summary.md"
+    ],
+    "stats": {
+     "prompt_tokens": 531,
+     "cached_tokens": 104,
+     "output_tokens": 43,
+     "prefill_tps": 1430.6,
+     "decode_tps": 52.6,
+     "stop": "stop",
+     "seconds": 3.25,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q05",
+    "kind": "fact",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "You pay a $60 copay to see a specialist under the Sunfield Health PPO Family Plan.\n\nSources: [health-plan-summary.md]",
+    "cited": [
+     "health-plan-summary.md"
+    ],
+    "retrieved": [
+     "health-plan-summary.md",
+     "health-plan-summary.md",
+     "internet-contract.md",
+     "internet-contract.md",
+     "pediatrician-visit-leo.md"
+    ],
+    "stats": {
+     "prompt_tokens": 652,
+     "cached_tokens": 104,
+     "output_tokens": 32,
+     "prefill_tps": 967.3,
+     "decode_tps": 55.0,
+     "stop": "stop",
+     "seconds": 3.3,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q06",
+    "kind": "fact",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "The family health insurance deductible is $3,000 under the Sunfield Health PPO Family Plan. This applies to the plan year from January 1 to December 31, 2026, covering Chris, Dana, Ava, and Leo Marlowe.\n\nSources: [health-plan-summary.md]",
+    "cited": [
+     "health-plan-summary.md"
+    ],
+    "retrieved": [
+     "health-plan-summary.md",
+     "health-plan-summary.md",
+     "health-plan-summary.md",
+     "auto-insurance.md",
+     "health-plan-summary.md"
+    ],
+    "stats": {
+     "prompt_tokens": 686,
+     "cached_tokens": 140,
+     "output_tokens": 67,
+     "prefill_tps": 1009.0,
+     "decode_tps": 54.1,
+     "stop": "stop",
+     "seconds": 3.82,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q07",
+    "kind": "trap",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "Ava is allergic to tree nuts, and her EpiPen is kept in the nurse's office at Westgrove Elementary.\nSources: [school-enrollment-ava.md]",
+    "cited": [
+     "school-enrollment-ava.md"
+    ],
+    "retrieved": [
+     "school-enrollment-ava.md",
+     "school-enrollment-ava.md",
+     "pediatrician-visit-leo.md",
+     "school-enrollment-ava.md",
+     "pediatrician-visit-leo.md"
+    ],
+    "stats": {
+     "prompt_tokens": 497,
+     "cached_tokens": 104,
+     "output_tokens": 38,
+     "prefill_tps": 963.2,
+     "decode_tps": 54.2,
+     "stop": "stop",
+     "seconds": 3.25,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q08",
+    "kind": "fact",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "Dana Marlowe, Chris Marlowe, Rosa Delgado, and Linda Marlowe are authorized to pick up Ava Marlowe from Westgrove Elementary. Anyone else requires a written note from a parent and photo ID. Sources: [school-enrollment-ava.md] [nanny-agreement.md]",
+    "cited": [
+     "nanny-agreement.md",
+     "school-enrollment-ava.md"
+    ],
+    "retrieved": [
+     "school-enrollment-ava.md",
+     "nanny-agreement.md",
+     "school-enrollment-ava.md",
+     "nanny-agreement.md",
+     "school-enrollment-ava.md"
+    ],
+    "stats": {
+     "prompt_tokens": 567,
+     "cached_tokens": 104,
+     "output_tokens": 66,
+     "prefill_tps": 877.2,
+     "decode_tps": 54.0,
+     "stop": "stop",
+     "seconds": 3.86,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q09",
+    "kind": "fact",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "Winter break starts on December 21, 2026, and school resumes on January 4, 2027.\nSources: [school-calendar-2026-27.md]",
+    "cited": [
+     "school-calendar-2026-27.md"
+    ],
+    "retrieved": [
+     "school-calendar-2026-27.md",
+     "school-calendar-2026-27.md",
+     "school-calendar-2026-27.md",
+     "school-calendar-2026-27.md",
+     "nanny-agreement.md"
+    ],
+    "stats": {
+     "prompt_tokens": 593,
+     "cached_tokens": 104,
+     "output_tokens": 46,
+     "prefill_tps": 996.3,
+     "decode_tps": 52.3,
+     "stop": "stop",
+     "seconds": 3.53,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q10",
+    "kind": "fact",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "Leo's next flu shot is due in October 2026.\nSources: [pediatrician-visit-leo.md]",
+    "cited": [
+     "pediatrician-visit-leo.md"
+    ],
+    "retrieved": [
+     "pediatrician-visit-leo.md",
+     "pediatrician-visit-leo.md",
+     "passports.md",
+     "nanny-agreement.md",
+     "health-plan-summary.md"
+    ],
+    "stats": {
+     "prompt_tokens": 554,
+     "cached_tokens": 104,
+     "output_tokens": 29,
+     "prefill_tps": 923.2,
+     "decode_tps": 54.5,
+     "stop": "stop",
+     "seconds": 3.14,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q11",
+    "kind": "fact",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "Leo Marlowe is prescribed Cetirizine (children's) at a dose of 5 mg by mouth once daily as needed for allergy symptoms. This was noted during his August 12, 2026, visit with Dr. Nora Feld.\n\nSources: [pediatrician-visit-leo.md]",
+    "cited": [
+     "pediatrician-visit-leo.md"
+    ],
+    "retrieved": [
+     "pediatrician-visit-leo.md",
+     "pediatrician-visit-leo.md",
+     "school-enrollment-ava.md",
+     "pediatrician-visit-leo.md",
+     "pediatrician-visit-leo.md"
+    ],
+    "stats": {
+     "prompt_tokens": 485,
+     "cached_tokens": 104,
+     "output_tokens": 68,
+     "prefill_tps": 940.6,
+     "decode_tps": 52.5,
+     "stop": "stop",
+     "seconds": 3.82,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q12",
+    "kind": "fact",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "The internet promotional price ends on October 31, 2026, after which the standard price will be $85 per month.\n\nSources: [internet-contract.md]",
+    "cited": [
+     "internet-contract.md"
+    ],
+    "retrieved": [
+     "internet-contract.md",
+     "internet-contract.md",
+     "passports.md",
+     "health-plan-summary.md",
+     "lease.md"
+    ],
+    "stats": {
+     "prompt_tokens": 537,
+     "cached_tokens": 104,
+     "output_tokens": 40,
+     "prefill_tps": 1040.6,
+     "decode_tps": 54.7,
+     "stop": "stop",
+     "seconds": 3.28,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q13",
+    "kind": "fact",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "Yes, the HVAC air filter is overdue for a change because it was last replaced on June 3, 2026, and must be replaced every 90 days. You need to buy a filter with the size 16x25x1.\n\nSources: [hvac-service-record.md] [lease.md]",
+    "cited": [
+     "hvac-service-record.md",
+     "lease.md"
+    ],
+    "retrieved": [
+     "hvac-service-record.md",
+     "hvac-service-record.md",
+     "lease.md",
+     "hvac-service-record.md",
+     "hvac-service-record.md"
+    ],
+    "stats": {
+     "prompt_tokens": 585,
+     "cached_tokens": 104,
+     "output_tokens": 70,
+     "prefill_tps": 929.6,
+     "decode_tps": 53.5,
+     "stop": "stop",
+     "seconds": 3.93,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q14",
+    "kind": "multi",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "You should contact the property manager to request service through Cooltech Heating & Air at (310) 555-0171, as the lease states the landlord is responsible for HVAC repairs.\n\nSources: [hvac-service-record.md] [lease.md]",
+    "cited": [
+     "hvac-service-record.md",
+     "lease.md"
+    ],
+    "retrieved": [
+     "hvac-service-record.md",
+     "hvac-service-record.md",
+     "hvac-service-record.md",
+     "hvac-service-record.md",
+     "lease.md"
+    ],
+    "stats": {
+     "prompt_tokens": 578,
+     "cached_tokens": 104,
+     "output_tokens": 58,
+     "prefill_tps": 1032.2,
+     "decode_tps": 53.0,
+     "stop": "stop",
+     "seconds": 3.66,
+     "leaked_thinking": false
+    },
+    "correct": false,
+    "cited_ok": true,
+    "id": "q15",
+    "kind": "multi",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "Rosa's hourly rate is $28, and overtime is paid at 1.5 times the hourly rate for hours exceeding 9 in a day or 40 in a week. Sources: [nanny-agreement.md]",
+    "cited": [
+     "nanny-agreement.md"
+    ],
+    "retrieved": [
+     "nanny-agreement.md",
+     "nanny-agreement.md",
+     "nanny-agreement.md",
+     "nanny-agreement.md",
+     "nanny-agreement.md"
+    ],
+    "stats": {
+     "prompt_tokens": 486,
+     "cached_tokens": 104,
+     "output_tokens": 49,
+     "prefill_tps": 805.4,
+     "decode_tps": 53.5,
+     "stop": "stop",
+     "seconds": 3.5,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q16",
+    "kind": "fact",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "Rosa needs to start work at 1:30 pm on Wednesdays, as the school has an early release dismissal at that time. This aligns with the agreement stating she starts 45 minutes before dismissal on early-release days.\n\nSources: [nanny-agreement.md] [school-calendar-2026-27.md]",
+    "cited": [
+     "nanny-agreement.md",
+     "school-calendar-2026-27.md"
+    ],
+    "retrieved": [
+     "nanny-agreement.md",
+     "nanny-agreement.md",
+     "nanny-agreement.md",
+     "school-calendar-2026-27.md",
+     "nanny-agreement.md"
+    ],
+    "stats": {
+     "prompt_tokens": 521,
+     "cached_tokens": 104,
+     "output_tokens": 74,
+     "prefill_tps": 909.6,
+     "decode_tps": 52.3,
+     "stop": "stop",
+     "seconds": 3.98,
+     "leaked_thinking": false
+    },
+    "correct": false,
+    "cited_ok": true,
+    "id": "q17",
+    "kind": "multi",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "Under the travel rule requiring renewal if less than 6 months remain, Chris Marlowe (expires May 14, 2027) and Ava Marlowe (expires February 3, 2027) need renewing first, as their dates are within six months of the winter break start on December 21, 2026.\n\nSources: [passports.md] [school-calendar-2026-27.md]",
+    "cited": [
+     "passports.md",
+     "school-calendar-2026-27.md"
+    ],
+    "retrieved": [
+     "passports.md",
+     "passports.md",
+     "nanny-agreement.md",
+     "school-calendar-2026-27.md",
+     "hvac-service-record.md"
+    ],
+    "stats": {
+     "prompt_tokens": 620,
+     "cached_tokens": 104,
+     "output_tokens": 99,
+     "prefill_tps": 814.5,
+     "decode_tps": 53.5,
+     "stop": "stop",
+     "seconds": 4.71,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": true,
+    "id": "q18",
+    "kind": "multi",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "NOT FOUND",
+    "cited": [],
+    "retrieved": [
+     "auto-insurance.md",
+     "auto-insurance.md",
+     "health-plan-summary.md",
+     "lease.md",
+     "lease.md"
+    ],
+    "stats": {
+     "prompt_tokens": 817,
+     "cached_tokens": 253,
+     "output_tokens": 3,
+     "prefill_tps": 1126.3,
+     "decode_tps": 70.4,
+     "stop": "stop",
+     "seconds": 3.04,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": null,
+    "id": "q19",
+    "kind": "unanswerable",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "NOT FOUND",
+    "cited": [],
+    "retrieved": [
+     "pediatrician-visit-leo.md",
+     "nanny-agreement.md",
+     "school-enrollment-ava.md",
+     "nanny-agreement.md",
+     "passports.md"
+    ],
+    "stats": {
+     "prompt_tokens": 579,
+     "cached_tokens": 104,
+     "output_tokens": 3,
+     "prefill_tps": 946.8,
+     "decode_tps": 65.4,
+     "stop": "stop",
+     "seconds": 2.7,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": null,
+    "id": "q20",
+    "kind": "unanswerable",
+    "invented_citations": [],
+    "invented": 0
+   },
+   {
+    "answer": "NOT FOUND",
+    "cited": [],
+    "retrieved": [
+     "passports.md",
+     "lease.md",
+     "hvac-service-record.md",
+     "school-calendar-2026-27.md",
+     "school-calendar-2026-27.md"
+    ],
+    "stats": {
+     "prompt_tokens": 574,
+     "cached_tokens": 108,
+     "output_tokens": 3,
+     "prefill_tps": 913.2,
+     "decode_tps": 71.4,
+     "stop": "stop",
+     "seconds": 2.73,
+     "leaked_thinking": false
+    },
+    "correct": true,
+    "cited_ok": null,
+    "id": "q21",
+    "kind": "unanswerable",
+    "invented_citations": [],
+    "invented": 0
+   }
+  ]
+ },
+ "rescored": "2026-09-26"
+}

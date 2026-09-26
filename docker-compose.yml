@@ -3,7 +3,9 @@
 # never by opening a port on the router.
 services:
   n8n:
-    image: docker.n8n.io/n8nio/n8n:${N8N_VERSION:-latest}
+    # No default on purpose: set N8N_VERSION in .env to the version the tests were run on,
+    # so an update never arrives by surprise. Compose refuses to start without it.
+    image: docker.n8n.io/n8nio/n8n:${N8N_VERSION:?Set N8N_VERSION in .env to the tested n8n version}
     restart: unless-stopped
     ports:
       - "127.0.0.1:5678:5678"
@@ -17,8 +19,9 @@ services:
       - N8N_VERSION_NOTIFICATIONS_ENABLED=false
       - N8N_PERSONALIZATION_ENABLED=false
       - N8N_COMMUNITY_PACKAGES_ENABLED=false
-      # Code nodes may write the activity log, and nothing outside /data.
-      - NODE_FUNCTION_ALLOW_BUILTIN=fs
+      # Code nodes may write the activity log (fs) and hash the meeting ID (crypto), and
+      # may not touch files outside /data.
+      - NODE_FUNCTION_ALLOW_BUILTIN=fs,crypto
       - N8N_RESTRICT_FILE_ACCESS_TO=/data
     extra_hosts:
       - "host.docker.internal:host-gateway"  # Ollama runs on the host

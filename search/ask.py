@@ -34,6 +34,13 @@ def retrieve(question, index=None, k=5):
     return ranked[:k]
 
 
+def citations(text, retrieved):
+    """Split the answer's [file.md] citations into ones search actually returned and ones the
+    model invented. An invented source is worse than none: it looks checkable and isn't."""
+    named = sorted(set(re.findall(r"\[([\w.-]+\.md)\]", text)))
+    return [n for n in named if n in retrieved], [n for n in named if n not in retrieved]
+
+
 def answer(question, model, hits=None, today=None, **chat_kw):
     hits = hits if hits is not None else retrieve(question)
     excerpts = "\n\n".join(f'<excerpt source="{h["source"]}">\n{h["text"]}\n</excerpt>' for h in hits)
@@ -42,12 +49,10 @@ def answer(question, model, hits=None, today=None, **chat_kw):
         {"role": "user", "content": f"{excerpts}\n\nQuestion: {question}"},
     ]
     text, stats = chat(messages, model, **chat_kw)
-    return {
-        "answer": text,
-        "cited": sorted(set(re.findall(r"\[([\w.-]+\.md)\]", text))),
-        "retrieved": [h["source"] for h in hits],
-        "stats": stats,
-    }
+    retrieved = [h["source"] for h in hits]
+    cited, invented = citations(text, retrieved)
+    return {"answer": text, "cited": cited, "invented_citations": invented,
+            "retrieved": retrieved, "stats": stats}
 
 
 if __name__ == "__main__":
@@ -63,5 +68,8 @@ if __name__ == "__main__":
     if not r["answer"] and r["stats"].get("stop") == "length":
         r["answer"] = "(No answer: the model ran out of output tokens, probably while thinking.)"
     print(r["answer"])
+    if r["invented_citations"]:
+        print(f"\nWARNING: cites {', '.join(r['invented_citations'])}, which search did not return. "
+              "Don't rely on this answer without opening the documents.")
     s = r["stats"]
     print(f"\n[{s['seconds']}s · {s['prompt_tokens']} prompt tokens · {s['decode_tps']} tok/s]")

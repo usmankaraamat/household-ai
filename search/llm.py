@@ -62,9 +62,18 @@ def chat(messages, model, *, backend="ollama", base=None, num_ctx=8192, think=No
                  "prefill_tps": None, "decode_tps": None,
                  "stop": r["choices"][0].get("finish_reason")}
     stats["seconds"] = round(time.perf_counter() - t0, 2)
-    # Some thinking models leak their reasoning into the answer even with thinking off.
-    text = re.sub(r"<think>.*?</think>", "", text, flags=re.S).strip()
+    text, stats["leaked_thinking"] = strip_thinking(text)
     return text, stats
+
+
+def strip_thinking(text):
+    """Remove reasoning a thinking model leaked into its answer, even with thinking off.
+    Granite 4.2 has emitted only the closing </think>, with the reasoning before it, so
+    everything up to the last </think> goes too. Returns (text, whether anything leaked)."""
+    cleaned = re.sub(r"<think>.*?</think>", "", text, flags=re.S)
+    if "</think>" in cleaned:
+        cleaned = cleaned.rsplit("</think>", 1)[1]
+    return cleaned.strip(), cleaned != text
 
 
 def gpu_share(model, base=OLLAMA):

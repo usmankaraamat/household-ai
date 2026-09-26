@@ -9,7 +9,8 @@ search**. Each new piece gets its own section here.
 After a meeting, the transcript goes to the computer at home, which writes a short summary
 and a list of who does what. You get a link, read the summary, and approve or reject it.
 Once you approve, the summary goes to Notion and any agreed appointment appears as a
-**draft** in Google Calendar, where only you can see it until you accept it.
+**draft** in Google Calendar: private, with no guests, and not blocking the time until you
+accept it.
 
 The full transcript never leaves the house. See [data-boundary.md](data-boundary.md) for
 what goes where and why.
@@ -21,14 +22,18 @@ what goes where and why.
 1. Open the approval link. *(In this first version the link is in the activity log and in
    n8n's Executions list. Sending it to your phone is the next step.)*
 2. Read the summary, and **check dates and times especially.** The home model sometimes
-   gets simple date calculations slightly wrong, like "end of next week".
+   gets simple date calculations slightly wrong, like "end of next week". What you see is
+   exactly what will be sent. If an account number, card number or date of birth came up
+   in the meeting, it has already been removed, and the page says so.
 3. Choose one:
    - **Approve notes and calendar draft**: the Notion page is created, and so is a draft
      event.
    - **Approve notes only**: just the Notion page.
    - **Reject**: nothing is written anywhere. Add a note saying why, if you like.
 4. The calendar draft is marked *tentative*, has no guests, and starts with **[Draft]**. It
-   invites nobody. Open it, fix anything, add people, and save it as a real event.
+   invites nobody. Its details are private, so anyone the calendar is shared with sees only
+   that something is there, and it shows the time as free. Open it, fix anything, add
+   people, set it to busy, and save it as a real event.
 
 Nobody has to approve right away. The request waits until someone does, even if the
 computer restarts.
@@ -60,8 +65,11 @@ It takes a few seconds. The index stays on the home computer.
 | "This transcript is about N tokens and the model is set to …" | The meeting is longer than the current setting allows | Ask the person who looks after the system to raise `numCtx`, or send the meeting in two halves |
 | Calendar drafts stopped appearing, but Notion pages still do | Google's sign-in has expired | In n8n, go to **Credentials**, open **Google Calendar account**, click **Sign in with Google** again, then retry the failed run |
 | "Could not find database" | The Notion database was moved or stopped being shared | In Notion, open the database, click **•••**, then **Connections**, and add **household-ai** |
+| "Could not find property with name or id: Meeting ID" | The Notion database is missing the column retries rely on | In Notion, add a **Text** property named **Meeting ID** to the database, then retry the run |
+| "Stopped before sending: the payload still contains …" | Something that looks like an ID or account number was about to leave the house | Nothing was written. Tell the person who looks after the system |
+| "… is not one of the approval choices" | The approval form was answered in an unexpected way | Nothing was written. Retry the run and choose one of the three options |
 | Answers are very slow | The model is dealing with a lot of text at once, or something else is using the computer heavily | Wait. If it happens often, tell the person who looks after the system |
-| Anything failed | Every failure is logged, and the run is kept | In n8n, open **Executions**, open the red one, fix the cause from this table, and click **Retry** |
+| Anything failed | Every failure is logged, and the run is kept | In n8n, open **Executions**, open the red one, fix the cause from this table, and click **Retry**. Retrying is always safe: it finds the Notion page and calendar draft it already made instead of making them twice |
 
 **Nothing falls back to the cloud when the home computer has a problem.** A failed meeting
 summary waits for you to retry it. It is never quietly sent to an outside service instead.
@@ -90,14 +98,15 @@ To see only the failures in the log:
 ## Twice a year (the maintenance visit)
 
 - Replace the Notion token and Google sign-in, and update the saved credentials.
-- Update n8n and Ollama to tested versions, one at a time, and re-run the model checks in
-  `bench/` before trusting a new model.
+- Update n8n and Ollama to tested versions, one at a time: change `N8N_VERSION` in `.env`,
+  run `python -m unittest discover -s tests`, send the sample meeting through, and re-run
+  the model checks in `bench/` before trusting a new model.
 - Read through this runbook together and fix anything that turned out to be unclear.
 
 ## Known limits
 
-- **The home model is good, not perfect.** On the test questions it answered everything
-  correctly, but it can get small details like dates slightly wrong. That's why a person
+- **The home model is good, not perfect.** On the test questions it got 20 of 21 right; the
+  one it missed had the right answer with a wrong date in it. That's why a person
   approves anything that gets written, and why answers name their source.
 - **Google's sign-in expires every 7 days** while the Google app is in "testing" mode.
   Before real use, the app has to be published (or made "internal" on Google Workspace),

@@ -11,7 +11,7 @@
 {"id": "q11", "kind": "fact", "q": "When is Leo's next flu shot due?", "expect": [["october"]], "sources": ["pediatrician-visit-leo.md"]}
 {"id": "q12", "kind": "fact", "q": "What allergy medicine is Leo on, and what's the dose?", "expect": [["cetirizine"], ["5 mg", "5mg"]], "sources": ["pediatrician-visit-leo.md"]}
 {"id": "q13", "kind": "fact", "q": "When does our internet promo price end, and what will we pay after that?", "expect": [["october 31", "oct 31", "10/31", "november 1", "nov 1"], ["85"]], "sources": ["internet-contract.md"]}
-{"id": "q14", "kind": "multi", "q": "Is the HVAC air filter overdue for a change, and what size do we need to buy?", "expect": [["overdue", "yes", "past due"], ["16x25x1", "16 x 25 x 1"]], "sources": ["hvac-service-record.md"]}
+{"id": "q14", "kind": "multi", "q": "Is the HVAC air filter overdue for a change, and what size do we need to buy?", "expect": [["overdue", "yes", "past due"], ["16x25x1", "16 x 25 x 1"]], "sources": ["hvac-service-record.md"], "forbid": ["september 4", "sep 4", "sept 4", "9/4"]}
 {"id": "q15", "kind": "multi", "q": "The air conditioning just stopped working. Who should we call?", "expect": [["555-0199"]], "sources": ["lease.md", "hvac-service-record.md"]}
 {"id": "q16", "kind": "fact", "q": "What is Rosa's hourly rate, and how is overtime paid?", "expect": [["28"], ["1.5", "time and a half", "time-and-a-half"]], "sources": ["nanny-agreement.md"]}
 {"id": "q17", "kind": "multi", "q": "What time does Rosa need to start work on Wednesdays?", "expect": [["12:45"]], "sources": ["nanny-agreement.md", "school-calendar-2026-27.md"]}

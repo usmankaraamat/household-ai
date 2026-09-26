@@ -75,6 +75,12 @@
               "type": "string"
             },
             {
+              "id": "2f925d24-b6cb-587f-af9c-e6509c404279",
+              "name": "notionMeetingIdProperty",
+              "value": "Meeting ID",
+              "type": "string"
+            },
+            {
               "id": "653ab7f2-c8c2-5d92-9f80-3adf93f66d0b",
               "name": "calendarId",
               "value": "primary",
@@ -102,7 +108,7 @@
         300
       ],
       "parameters": {
-        "jsCode": "const fs = require('fs');\nconst log = (step, extra = {}) => fs.appendFileSync('/data/logs/household.jsonl',\n  JSON.stringify({ ts: new Date().toISOString(), workflow: $workflow.name, execution: $execution.id, step, ...extra }) + '\\n');\n\nconst cfg = $('Config').first().json;\nconst m = cfg.body || {};\nif (!m.title || !m.transcript) throw new Error('The request needs a title and a transcript');\n\n// Ollama refuses prompts longer than its context. Catch that here, before the model call,\n// with a message the family can act on (older Ollama versions silently cut the text instead).\nconst estTokens = Math.ceil(m.transcript.length / 3.6);\nif (estTokens > cfg.numCtx * 0.75) {\n  log('rejected_too_long', { title: m.title, est_tokens: estTokens, num_ctx: cfg.numCtx });\n  throw new Error(`This transcript is about ${estTokens} tokens and the model is set to ${cfg.numCtx}. Raise numCtx in Config, or split the meeting.`);\n}\nlog('received', { title: m.title, chars: m.transcript.length, est_tokens: estTokens });\n\nconst SYSTEM = `You summarize a family's meeting transcript for their shared notes. Use only what was said.\nReturn JSON with:\n- summary: 2 to 4 plain sentences.\n- decisions: what was agreed, one short line each.\n- action_items: one per task, with owner (first name), task, and due (YYYY-MM-DD if a date was said, otherwise \"\").\n- event: if they agreed on a specific appointment with a date and a time, needed=true with title, date (YYYY-MM-DD), start and end (HH:MM, 24-hour). Otherwise needed=false and empty strings.\nThe meeting date is given, so resolve words like \"Friday\" or \"the 10th\" to real dates.`;\n\nconst str = { type: 'string' };\nconst schema = {\n  type: 'object',\n  properties: {\n    summary: str,\n    decisions: { type: 'array', items: str },\n    action_items: { type: 'array', items: { type: 'object', properties: { owner: str, task: str, due: str }, required: ['owner', 'task', 'due'] } },\n    event: { type: 'object', properties: { needed: { type: 'boolean' }, title: str, date: str, start: str, end: str }, required: ['needed', 'title', 'date', 'start', 'end'] },\n  },\n  required: ['summary', 'decisions', 'action_items', 'event'],\n};\n\nconst request = {\n  model: cfg.model,\n  stream: false,\n  format: schema,\n  options: { num_ctx: cfg.numCtx, temperature: 0 },\n  messages: [\n    { role: 'system', content: SYSTEM },\n    { role: 'user', content: `Meeting: ${m.title}\\nDate: ${m.date}\\nAttendees: ${(m.attendees || []).join(', ')}\\n\\nTranscript:\\n${m.transcript}` },\n  ],\n};\nif (cfg.disableThinking) request.think = false;\nreturn [{ json: { meeting: { title: m.title, date: m.date, attendees: m.attendees || [] }, request } }];\n"
+        "jsCode": "const fs = require('fs');\nconst log = (step, extra = {}) => fs.appendFileSync('/data/logs/household.jsonl',\n  JSON.stringify({ ts: new Date().toISOString(), workflow: $workflow.name, execution: $execution.id, step, ...extra }) + '\\n');\n\nconst crypto = require('crypto');\nconst cfg = $('Config').first().json;\nconst m = cfg.body || {};\nif (!m.title || !m.transcript) throw new Error('The request needs a title and a transcript');\n\n// Ollama refuses prompts longer than its context. Catch that here, before the model call,\n// with a message the family can act on (older Ollama versions silently cut the text instead).\nconst estTokens = Math.ceil(m.transcript.length / 3.6);\nif (estTokens > cfg.numCtx * 0.75) {\n  log('rejected_too_long', { title: m.title, est_tokens: estTokens, num_ctx: cfg.numCtx });\n  throw new Error(`This transcript is about ${estTokens} tokens and the model is set to ${cfg.numCtx}. Raise numCtx in Config, or split the meeting.`);\n}\n// One stable ID per meeting. Every write outside the house is keyed on it, so a retry or a\n// resent transcript finds the page and event it already made instead of making another.\nconst meetingId = crypto.createHash('sha256')\n  .update(m.meeting_id ? `id:${m.meeting_id}` : `${m.title}\\n${m.date}\\n${m.transcript}`)\n  .digest('hex').slice(0, 32);\nlog('received', { title: m.title, meeting_id: meetingId, chars: m.transcript.length, est_tokens: estTokens });\n\nconst SYSTEM = `You summarize a family's meeting transcript for their shared notes. Use only what was said.\nReturn JSON with:\n- summary: 2 to 4 plain sentences.\n- decisions: what was agreed, one short line each.\n- action_items: one per task, with owner (first name), task, and due (YYYY-MM-DD if a date was said, otherwise \"\").\n- event: if they agreed on a specific appointment with a date and a time, needed=true with title, date (YYYY-MM-DD), start and end (HH:MM, 24-hour). Otherwise needed=false and empty strings.\nThe meeting date is given, so resolve words like \"Friday\" or \"the 10th\" to real dates.`;\n\nconst str = { type: 'string' };\nconst schema = {\n  type: 'object',\n  properties: {\n    summary: str,\n    decisions: { type: 'array', items: str },\n    action_items: { type: 'array', items: { type: 'object', properties: { owner: str, task: str, due: str }, required: ['owner', 'task', 'due'] } },\n    event: { type: 'object', properties: { needed: { type: 'boolean' }, title: str, date: str, start: str, end: str }, required: ['needed', 'title', 'date', 'start', 'end'] },\n  },\n  required: ['summary', 'decisions', 'action_items', 'event'],\n};\n\nconst request = {\n  model: cfg.model,\n  stream: false,\n  format: schema,\n  options: { num_ctx: cfg.numCtx, temperature: 0 },\n  messages: [\n    { role: 'system', content: SYSTEM },\n    { role: 'user', content: `Meeting: ${m.title}\\nDate: ${m.date}\\nAttendees: ${(m.attendees || []).join(', ')}\\n\\nTranscript:\\n${m.transcript}` },\n  ],\n};\nif (cfg.disableThinking) request.think = false;\nreturn [{ json: { meeting: { id: meetingId, title: m.title, date: m.date, attendees: m.attendees || [] }, request } }];\n"
       }
     },
     {
@@ -138,7 +144,7 @@
         300
       ],
       "parameters": {
-        "jsCode": "const fs = require('fs');\nconst log = (step, extra = {}) => fs.appendFileSync('/data/logs/household.jsonl',\n  JSON.stringify({ ts: new Date().toISOString(), workflow: $workflow.name, execution: $execution.id, step, ...extra }) + '\\n');\n\nconst r = $input.first().json;\nconst meeting = $('Check transcript').first().json.meeting;\nlet s;\ntry {\n  s = JSON.parse(r.message.content);\n} catch (e) {\n  log('bad_model_output', { title: meeting.title });\n  throw new Error('The home model did not return valid JSON. Retry the execution, or try another model in Config.');\n}\nif (typeof s.summary !== 'string' || !Array.isArray(s.action_items)) throw new Error('The summary is missing required fields');\n\nconst ev = s.event || {};\nconst event = ev.needed && /^\\d{4}-\\d{2}-\\d{2}$/.test(ev.date) && /^\\d{2}:\\d{2}$/.test(ev.start) && /^\\d{2}:\\d{2}$/.test(ev.end) ? ev : null;\nlog('summarized', {\n  title: meeting.title, model: r.model, prompt_tokens: r.prompt_eval_count, output_tokens: r.eval_count,\n  seconds: +(r.total_duration / 1e9).toFixed(1), event_proposed: !!event,\n});\n\nconst lines = [\n  s.summary, '',\n  'Decisions:', ...(s.decisions || []).map(d => `- ${d}`), '',\n  'Action items:', ...s.action_items.map(a => `- ${a.owner}: ${a.task}${a.due ? ` (by ${a.due})` : ''}`), '',\n  event ? `Proposed calendar draft: ${event.title}, ${event.date} ${event.start}-${event.end}` : 'No calendar event proposed.',\n];\nreturn [{ json: { meeting, summary: s, event, model: r.model, review: lines.join('\\n') } }];\n"
+        "jsCode": "const fs = require('fs');\nconst log = (step, extra = {}) => fs.appendFileSync('/data/logs/household.jsonl',\n  JSON.stringify({ ts: new Date().toISOString(), workflow: $workflow.name, execution: $execution.id, step, ...extra }) + '\\n');\n\nconst hit = (counts, label) => { counts[label] = (counts[label] || 0) + 1; return `[removed: ${label}]`; };\nconst luhn = s => {\n  const d = s.replace(/\\D/g, '');\n  let sum = 0;\n  for (let i = 0; i < d.length; i++) {\n    let n = +d[d.length - 1 - i];\n    if (i % 2) { n *= 2; if (n > 9) n -= 9; }\n    sum += n;\n  }\n  return d.length >= 13 && sum % 10 === 0;\n};\nconst ID_LABEL = /\\b(?:account|acct|policy|member|routing|passport|licen[cs]e|ssn)\\b(?:\\s*(?:no\\.?|number|#|id))?\\s*[:#]?\\s*((?=[A-Z0-9-]*\\d)[A-Z0-9][A-Z0-9-]{5,})/gi;\nconst DOB = /\\b(?:dob|date of birth|born(?: on)?)\\b\\s*[:\\-]?\\s*(\\d{1,4}[\\/.-]\\d{1,2}[\\/.-]\\d{1,4}|[A-Z][a-z]+ \\d{1,2},? \\d{4})/gi;\nfunction scrub(text, counts) {\n  return String(text)\n    .replace(/\\b\\d{3}-\\d{2}-\\d{4}\\b/g, () => hit(counts, 'SSN'))\n    .replace(/\\b(?:\\d[ -]?){12,18}\\d\\b/g, m => luhn(m) ? hit(counts, 'card number') : m)\n    .replace(ID_LABEL, (m, v) => m.slice(0, m.length - v.length) + hit(counts, 'ID or account number'))\n    .replace(/\\b\\d{9,}\\b/g, () => hit(counts, 'long number'))\n    .replace(DOB, (m, v) => m.slice(0, m.length - v.length) + hit(counts, 'date of birth'));\n}\n// The guard: throws if anything sensitive-shaped is about to leave, whatever the path.\n// Pass the family's content only, not IDs the system made (Notion and meeting IDs are hex).\nfunction assertClean(payload) {\n  const found = {};\n  scrub(JSON.stringify(payload), found);\n  if (Object.keys(found).length) {\n    log('outbound_blocked', { found });\n    throw new Error(`Stopped before sending: the payload still contains ${Object.keys(found).join(', ')}. Nothing was written.`);\n  }\n}\n\nfunction checkEvent(ev, meetingDate) {\n  if (!ev || !ev.needed) return { event: null, problem: null };\n  const d = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(ev.date || '');\n  const minutes = s => {\n    const m = /^(\\d{2}):(\\d{2})$/.exec(s || '');\n    return m && +m[1] < 24 && +m[2] < 60 ? +m[1] * 60 + +m[2] : null;\n  };\n  if (!String(ev.title || '').trim()) return { event: null, problem: 'it has no title' };\n  if (!d) return { event: null, problem: `\"${ev.date}\" is not a date` };\n  const day = new Date(Date.UTC(+d[1], +d[2] - 1, +d[3]));\n  if (day.getUTCFullYear() !== +d[1] || day.getUTCMonth() !== +d[2] - 1 || day.getUTCDate() !== +d[3]) {\n    return { event: null, problem: `${ev.date} is not a real date` };\n  }\n  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(meetingDate || '') && ev.date < meetingDate) {\n    return { event: null, problem: `${ev.date} is before the meeting itself` };\n  }\n  const start = minutes(ev.start), end = minutes(ev.end);\n  if (start === null || end === null) return { event: null, problem: `${ev.start}-${ev.end} is not a valid time` };\n  if (end <= start) return { event: null, problem: `it ends (${ev.end}) before it starts (${ev.start})` };\n  if (end - start > 12 * 60) return { event: null, problem: 'it is longer than 12 hours' };\n  return { event: ev, problem: null };\n}\n\nconst r = $input.first().json;\nconst meeting = $('Check transcript').first().json.meeting;\nlet s;\ntry {\n  s = JSON.parse(r.message.content);\n} catch (e) {\n  log('bad_model_output', { meeting_id: meeting.id });\n  throw new Error('The home model did not return valid JSON. Retry the execution, or try another model in Config.');\n}\nif (typeof s.summary !== 'string' || !Array.isArray(s.action_items)) throw new Error('The summary is missing required fields');\n\n// Everything below is what may leave the house, already passed through the outbound check.\nconst removed = {};\nconst clean = t => scrub(t, removed);\nconst title = clean(meeting.title);\nconst out = {\n  summary: clean(s.summary),\n  decisions: (s.decisions || []).map(clean),\n  action_items: s.action_items.map(a => ({ owner: clean(a.owner || ''), task: clean(a.task || ''),\n    due: /^\\d{4}-\\d{2}-\\d{2}$/.test(a.due || '') ? a.due : '' })),\n};\nconst { event: proposed, problem } = checkEvent(s.event, meeting.date);\nconst event = proposed && { ...proposed, title: clean(proposed.title) };\nlog('summarized', {\n  meeting_id: meeting.id, model: r.model, prompt_tokens: r.prompt_eval_count, output_tokens: r.eval_count,\n  seconds: +(r.total_duration / 1e9).toFixed(1), event_proposed: !!event, event_problem: problem, removed,\n});\n\nconst removedCount = Object.values(removed).reduce((a, b) => a + b, 0);\nconst lines = [\n  'This is exactly what will be sent to Notion' + (event ? ' and Google Calendar' : '') + ' if you approve.',\n  removedCount ? `Removed before anything leaves the house: ${Object.entries(removed).map(([k, v]) => `${v} ${k}`).join(', ')}.` : 'Nothing needed removing.',\n  '',\n  out.summary, '',\n  'Decisions:', ...out.decisions.map(d => `- ${d}`), '',\n  'Action items:', ...out.action_items.map(a => `- ${a.owner}: ${a.task}${a.due ? ` (by ${a.due})` : ''}`), '',\n  event ? `Proposed calendar draft: ${event.title}, ${event.date} ${event.start}-${event.end}`\n    : problem ? `No calendar draft: the model proposed an event, but ${problem}.` : 'No calendar event proposed.',\n];\nreturn [{ json: { meeting: { ...meeting, title }, summary: out, event, model: r.model, review: lines.join('\\n') } }];\n"
       }
     },
     {
@@ -151,7 +157,7 @@
         300
       ],
       "parameters": {
-        "jsCode": "const fs = require('fs');\nconst log = (step, extra = {}) => fs.appendFileSync('/data/logs/household.jsonl',\n  JSON.stringify({ ts: new Date().toISOString(), workflow: $workflow.name, execution: $execution.id, step, ...extra }) + '\\n');\n\n// Anything that sends this link to a phone (Gmail, Telegram, ntfy) goes here. Send the\n// title and the link only: the summary stays on the home machine until someone approves it.\nconst item = $input.first().json;\nlog('awaiting_approval', { title: item.meeting.title, approve_url: $execution.resumeFormUrl });\nreturn [{ json: item }];\n"
+        "jsCode": "const fs = require('fs');\nconst log = (step, extra = {}) => fs.appendFileSync('/data/logs/household.jsonl',\n  JSON.stringify({ ts: new Date().toISOString(), workflow: $workflow.name, execution: $execution.id, step, ...extra }) + '\\n');\n\n// Anything that sends this link to a phone (Gmail, Telegram, ntfy) goes here. Send the\n// title and the link only: the summary stays on the home machine until someone approves it.\nconst item = $input.first().json;\nlog('awaiting_approval', { meeting_id: item.meeting.id, approve_url: $execution.resumeFormUrl });\nreturn [{ json: item }];\n"
       }
     },
     {
@@ -206,7 +212,88 @@
         300
       ],
       "parameters": {
-        "jsCode": "const fs = require('fs');\nconst log = (step, extra = {}) => fs.appendFileSync('/data/logs/household.jsonl',\n  JSON.stringify({ ts: new Date().toISOString(), workflow: $workflow.name, execution: $execution.id, step, ...extra }) + '\\n');\n\nconst form = $input.first().json;\nconst prev = $('Check summary').first().json;\nconst cfg = $('Config').first().json;\nconst title = prev.meeting.title;\nif (form.Decision === 'Reject') {\n  log('rejected_by_person', { title, note: form['Note for the log'] || '' });\n  return [];\n}\nlog('approved', { title, decision: form.Decision, note: form['Note for the log'] || '' });\nif (!cfg.notionDatabaseId) throw new Error('Set notionDatabaseId in the Config node');\n\nconst rich = t => [{ type: 'text', text: { content: String(t).slice(0, 1900) } }];\nconst block = (type, t, extra = {}) => ({ object: 'block', type, [type]: { rich_text: rich(t), ...extra } });\nconst s = prev.summary;\nconst children = [\n  block('heading_2', 'Summary'), block('paragraph', s.summary),\n  block('heading_2', 'Decisions'), ...(s.decisions || []).map(d => block('bulleted_list_item', d)),\n  block('heading_2', 'Action items'),\n  ...s.action_items.map(a => block('to_do', `${a.owner}: ${a.task}${a.due ? ` (by ${a.due})` : ''}`, { checked: false })),\n  block('paragraph', `Summarized at home by ${prev.model}. The transcript is not stored in Notion.`),\n];\nconst properties = {\n  [cfg.notionTitleProperty]: { title: rich(title) },\n  [cfg.notionDateProperty]: { date: { start: prev.meeting.date } },\n};\nreturn [{ json: { decision: form.Decision, notionBody: { parent: { database_id: cfg.notionDatabaseId }, properties, children } } }];\n"
+        "jsCode": "const fs = require('fs');\nconst log = (step, extra = {}) => fs.appendFileSync('/data/logs/household.jsonl',\n  JSON.stringify({ ts: new Date().toISOString(), workflow: $workflow.name, execution: $execution.id, step, ...extra }) + '\\n');\n\nconst hit = (counts, label) => { counts[label] = (counts[label] || 0) + 1; return `[removed: ${label}]`; };\nconst luhn = s => {\n  const d = s.replace(/\\D/g, '');\n  let sum = 0;\n  for (let i = 0; i < d.length; i++) {\n    let n = +d[d.length - 1 - i];\n    if (i % 2) { n *= 2; if (n > 9) n -= 9; }\n    sum += n;\n  }\n  return d.length >= 13 && sum % 10 === 0;\n};\nconst ID_LABEL = /\\b(?:account|acct|policy|member|routing|passport|licen[cs]e|ssn)\\b(?:\\s*(?:no\\.?|number|#|id))?\\s*[:#]?\\s*((?=[A-Z0-9-]*\\d)[A-Z0-9][A-Z0-9-]{5,})/gi;\nconst DOB = /\\b(?:dob|date of birth|born(?: on)?)\\b\\s*[:\\-]?\\s*(\\d{1,4}[\\/.-]\\d{1,2}[\\/.-]\\d{1,4}|[A-Z][a-z]+ \\d{1,2},? \\d{4})/gi;\nfunction scrub(text, counts) {\n  return String(text)\n    .replace(/\\b\\d{3}-\\d{2}-\\d{4}\\b/g, () => hit(counts, 'SSN'))\n    .replace(/\\b(?:\\d[ -]?){12,18}\\d\\b/g, m => luhn(m) ? hit(counts, 'card number') : m)\n    .replace(ID_LABEL, (m, v) => m.slice(0, m.length - v.length) + hit(counts, 'ID or account number'))\n    .replace(/\\b\\d{9,}\\b/g, () => hit(counts, 'long number'))\n    .replace(DOB, (m, v) => m.slice(0, m.length - v.length) + hit(counts, 'date of birth'));\n}\n// The guard: throws if anything sensitive-shaped is about to leave, whatever the path.\n// Pass the family's content only, not IDs the system made (Notion and meeting IDs are hex).\nfunction assertClean(payload) {\n  const found = {};\n  scrub(JSON.stringify(payload), found);\n  if (Object.keys(found).length) {\n    log('outbound_blocked', { found });\n    throw new Error(`Stopped before sending: the payload still contains ${Object.keys(found).join(', ')}. Nothing was written.`);\n  }\n}\n\nconst DECISIONS = [\"Approve notes and calendar draft\", \"Approve notes only\", \"Reject\"];\nconst form = $input.first().json;\nconst prev = $('Check summary').first().json;\nconst cfg = $('Config').first().json;\nconst id = prev.meeting.id;\nif (!DECISIONS.includes(form.Decision)) {\n  log('unknown_decision', { meeting_id: id });\n  throw new Error(`\"${form.Decision}\" is not one of the approval choices. Nothing was written.`);\n}\nif (form.Decision === 'Reject') {\n  log('rejected_by_person', { meeting_id: id, note: form['Note for the log'] || '' });\n  return [];\n}\nlog('approved', { meeting_id: id, decision: form.Decision, note: form['Note for the log'] || '' });\nif (!cfg.notionDatabaseId) throw new Error('Set notionDatabaseId in the Config node');\n\nconst rich = t => [{ type: 'text', text: { content: String(t).slice(0, 1900) } }];\nconst block = (type, t, extra = {}) => ({ object: 'block', type, [type]: { rich_text: rich(t), ...extra } });\nconst s = prev.summary;\nconst children = [\n  block('heading_2', 'Summary'), block('paragraph', s.summary),\n  block('heading_2', 'Decisions'), ...s.decisions.map(d => block('bulleted_list_item', d)),\n  block('heading_2', 'Action items'),\n  ...s.action_items.map(a => block('to_do', `${a.owner}: ${a.task}${a.due ? ` (by ${a.due})` : ''}`, { checked: false })),\n  block('paragraph', `Summarized at home by ${prev.model}. The transcript is not stored in Notion.`),\n];\nconst properties = {\n  [cfg.notionTitleProperty]: { title: rich(prev.meeting.title) },\n  [cfg.notionDateProperty]: { date: { start: prev.meeting.date } },\n  [cfg.notionMeetingIdProperty]: { rich_text: rich(id) },\n};\nassertClean({ title: prev.meeting.title, children });\nconst notionBody = { parent: { database_id: cfg.notionDatabaseId }, properties, children };\nconst findBody = { filter: { property: cfg.notionMeetingIdProperty, rich_text: { equals: id } }, page_size: 1 };\nreturn [{ json: { decision: form.Decision, notionBody, findBody } }];\n"
+      }
+    },
+    {
+      "id": "877d7495-9bca-52bc-ab7c-e4877ee8ca92",
+      "name": "Find existing page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.notion.com/v1/databases/{{ $('Config').first().json.notionDatabaseId }}/query",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Build Notion page').first().json.findBody) }}",
+        "options": {
+          "timeout": 60000
+        },
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "notionApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Notion-Version",
+              "value": "2022-06-28"
+            }
+          ]
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "3c5358e8-bed4-545f-94d0-e1b760167e75",
+      "name": "Page exists?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst log = (step, extra = {}) => fs.appendFileSync('/data/logs/household.jsonl',\n  JSON.stringify({ ts: new Date().toISOString(), workflow: $workflow.name, execution: $execution.id, step, ...extra }) + '\\n');\n\nconst q = $input.first().json;\nconst built = $('Build Notion page').first().json;\nconst id = $('Check summary').first().json.meeting.id;\nconst page = Array.isArray(q.results) && q.results[0];\nif (page) {\n  log('notion_page_existed', { meeting_id: id, notion_url: page.url, attempt: $runIndex + 1 });\n  return [{ json: { exists: true, page: { id: page.id, url: page.url } } }];\n}\nif ($runIndex >= 3) {\n  log('notion_create_gave_up', { meeting_id: id });\n  throw new Error('Notion did not confirm the page after 3 attempts. Check Notion, then retry this run: it looks for the page first, so it will not make a duplicate.');\n}\nif ($runIndex > 0) log('notion_create_retry', { meeting_id: id, attempt: $runIndex + 1 });\nreturn [{ json: { exists: false, notionBody: built.notionBody } }];\n"
+      }
+    },
+    {
+      "id": "d86ca9cb-705f-55ac-a9b3-54a4f86f8cef",
+      "name": "Already in Notion?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2200,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7a98921e-28e2-5d15-a3d8-b6b0983a0292",
+              "leftValue": "={{ $json.exists }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
       }
     },
     {
@@ -215,8 +302,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1760,
-        300
+        2420,
+        420
       ],
       "parameters": {
         "method": "POST",
@@ -239,9 +326,23 @@
           ]
         }
       },
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 5000
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "763a19fb-a8d8-5285-8b12-dd8f16188c68",
+      "name": "Wait, then look again",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2640,
+        560
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 5,
+        "unit": "seconds"
+      },
+      "webhookId": "7648efb2-72ae-5159-bc6a-84f08fb6bdab"
     },
     {
       "id": "28666115-f18d-5912-95fb-6ea50e98ee57",
@@ -249,11 +350,11 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1980,
+        2860,
         300
       ],
       "parameters": {
-        "jsCode": "const fs = require('fs');\nconst log = (step, extra = {}) => fs.appendFileSync('/data/logs/household.jsonl',\n  JSON.stringify({ ts: new Date().toISOString(), workflow: $workflow.name, execution: $execution.id, step, ...extra }) + '\\n');\n\nconst page = $input.first().json;\nconst prev = $('Check summary').first().json;\nconst cfg = $('Config').first().json;\nconst decision = $('Build Notion page').first().json.decision;\nlog('notion_page_created', { title: prev.meeting.title, notion_url: page.url });\n\nif (decision !== 'Approve notes and calendar draft' || !prev.event) {\n  log('done', { title: prev.meeting.title, calendar: 'skipped' });\n  return [];\n}\nconst ev = prev.event;\n// No attendees and status \"tentative\": a draft only the family sees. Nobody gets invited.\nreturn [{ json: { calendarBody: {\n  summary: `[Draft] ${ev.title}`,\n  status: 'tentative',\n  description: `Proposed in \"${prev.meeting.title}\" (${prev.meeting.date}). Notes: ${page.url}`,\n  start: { dateTime: `${ev.date}T${ev.start}:00`, timeZone: cfg.timezone },\n  end: { dateTime: `${ev.date}T${ev.end}:00`, timeZone: cfg.timezone },\n} } }];\n"
+        "jsCode": "const fs = require('fs');\nconst log = (step, extra = {}) => fs.appendFileSync('/data/logs/household.jsonl',\n  JSON.stringify({ ts: new Date().toISOString(), workflow: $workflow.name, execution: $execution.id, step, ...extra }) + '\\n');\n\nconst hit = (counts, label) => { counts[label] = (counts[label] || 0) + 1; return `[removed: ${label}]`; };\nconst luhn = s => {\n  const d = s.replace(/\\D/g, '');\n  let sum = 0;\n  for (let i = 0; i < d.length; i++) {\n    let n = +d[d.length - 1 - i];\n    if (i % 2) { n *= 2; if (n > 9) n -= 9; }\n    sum += n;\n  }\n  return d.length >= 13 && sum % 10 === 0;\n};\nconst ID_LABEL = /\\b(?:account|acct|policy|member|routing|passport|licen[cs]e|ssn)\\b(?:\\s*(?:no\\.?|number|#|id))?\\s*[:#]?\\s*((?=[A-Z0-9-]*\\d)[A-Z0-9][A-Z0-9-]{5,})/gi;\nconst DOB = /\\b(?:dob|date of birth|born(?: on)?)\\b\\s*[:\\-]?\\s*(\\d{1,4}[\\/.-]\\d{1,2}[\\/.-]\\d{1,4}|[A-Z][a-z]+ \\d{1,2},? \\d{4})/gi;\nfunction scrub(text, counts) {\n  return String(text)\n    .replace(/\\b\\d{3}-\\d{2}-\\d{4}\\b/g, () => hit(counts, 'SSN'))\n    .replace(/\\b(?:\\d[ -]?){12,18}\\d\\b/g, m => luhn(m) ? hit(counts, 'card number') : m)\n    .replace(ID_LABEL, (m, v) => m.slice(0, m.length - v.length) + hit(counts, 'ID or account number'))\n    .replace(/\\b\\d{9,}\\b/g, () => hit(counts, 'long number'))\n    .replace(DOB, (m, v) => m.slice(0, m.length - v.length) + hit(counts, 'date of birth'));\n}\n// The guard: throws if anything sensitive-shaped is about to leave, whatever the path.\n// Pass the family's content only, not IDs the system made (Notion and meeting IDs are hex).\nfunction assertClean(payload) {\n  const found = {};\n  scrub(JSON.stringify(payload), found);\n  if (Object.keys(found).length) {\n    log('outbound_blocked', { found });\n    throw new Error(`Stopped before sending: the payload still contains ${Object.keys(found).join(', ')}. Nothing was written.`);\n  }\n}\n\nconst j = $input.first().json;\nconst page = j.page || j;\nconst prev = $('Check summary').first().json;\nconst cfg = $('Config').first().json;\nconst decision = $('Build Notion page').first().json.decision;\nconst id = prev.meeting.id;\nif (!j.page) log('notion_page_created', { meeting_id: id, notion_url: page.url });\n\nif (decision !== 'Approve notes and calendar draft' || !prev.event) {\n  log('done', { meeting_id: id, calendar: 'skipped' });\n  return [];\n}\nconst ev = prev.event;\nconst calendarBody = {\n  // Google accepts an ID from the caller. Sending the same one twice returns 409 instead of\n  // a second event, which makes this write safe to retry. Base32hex allows 0-9 and a-v.\n  id: `hh${id}`,\n  summary: `[Draft] ${ev.title}`,\n  status: 'tentative',\n  // Private hides the details from anyone the calendar is shared with, and transparent\n  // leaves the time free, so a draft neither shows its contents nor blocks the slot.\n  visibility: 'private',\n  transparency: 'transparent',\n  description: `Proposed in \"${prev.meeting.title}\" (${prev.meeting.date}). Notes: ${page.url}`,\n  start: { dateTime: `${ev.date}T${ev.start}:00`, timeZone: cfg.timezone },\n  end: { dateTime: `${ev.date}T${ev.end}:00`, timeZone: cfg.timezone },\n};\nassertClean({ summary: calendarBody.summary, title: prev.meeting.title });\nreturn [{ json: { calendarBody } }];\n"
       }
     },
     {
@@ -262,7 +363,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2200,
+        3080,
         300
       ],
       "parameters": {
@@ -272,7 +373,14 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify($json.calendarBody) }}",
         "options": {
-          "timeout": 60000
+          "timeout": 60000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
         },
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "googleCalendarOAuth2Api"
@@ -282,16 +390,16 @@
       "waitBetweenTries": 5000
     },
     {
-      "id": "763e82cf-5a54-5505-8d76-9df880a3966e",
-      "name": "Log done",
+      "id": "121a3d40-f54b-510f-9329-7c7d726b4dd5",
+      "name": "Check calendar result",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2420,
+        3300,
         300
       ],
       "parameters": {
-        "jsCode": "const fs = require('fs');\nconst log = (step, extra = {}) => fs.appendFileSync('/data/logs/household.jsonl',\n  JSON.stringify({ ts: new Date().toISOString(), workflow: $workflow.name, execution: $execution.id, step, ...extra }) + '\\n');\n\nconst ev = $input.first().json;\nlog('done', { title: $('Check summary').first().json.meeting.title, calendar: 'draft created', event_link: ev.htmlLink });\nreturn $input.all();\n"
+        "jsCode": "const fs = require('fs');\nconst log = (step, extra = {}) => fs.appendFileSync('/data/logs/household.jsonl',\n  JSON.stringify({ ts: new Date().toISOString(), workflow: $workflow.name, execution: $execution.id, step, ...extra }) + '\\n');\n\nconst r = $input.first().json;\nconst id = $('Check summary').first().json.meeting.id;\nif (r.statusCode === 200 || r.statusCode === 201) {\n  log('done', { meeting_id: id, calendar: 'draft created', event_link: r.body && r.body.htmlLink });\n} else if (r.statusCode === 409) {\n  log('done', { meeting_id: id, calendar: 'draft already existed' });\n} else {\n  throw new Error(`Google Calendar answered ${r.statusCode}. Retry this run once the cause is fixed: the event ID is fixed, so it cannot be created twice.`);\n}\nreturn [{ json: { statusCode: r.statusCode } }];\n"
       }
     },
     {
@@ -306,7 +414,7 @@
       "parameters": {
         "width": 900,
         "height": 220,
-        "content": "## What leaves the house\nThe transcript goes only to Ollama on this machine. After a person approves, Notion gets the short summary and Google Calendar gets a tentative draft with no guests. Every step is logged to logs/household.jsonl, and failures go to the Household errors workflow. See docs/data-boundary.md."
+        "content": "## What leaves the house\nThe transcript goes only to Ollama on this machine. The summary passes an outbound check (IDs, account and card numbers, dates of birth) and the approval form shows exactly what will be sent. After a person approves, Notion gets the summary and Google Calendar gets a private draft that doesn't block time. Both writes are keyed on the meeting ID, so retries never duplicate. Every step is logged to logs/household.jsonl. See docs/data-boundary.md."
       }
     }
   ],
@@ -392,18 +500,29 @@
       "main": [
         [
           {
-            "node": "Create Notion page",
+            "node": "Find existing page",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Create Notion page": {
+    "Find existing page": {
       "main": [
         [
           {
-            "node": "Build calendar draft",
+            "node": "Page exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Page exists?": {
+      "main": [
+        [
+          {
+            "node": "Already in Notion?",
             "type": "main",
             "index": 0
           }
@@ -425,7 +544,54 @@
       "main": [
         [
           {
-            "node": "Log done",
+            "node": "Check calendar result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Already in Notion?": {
+      "main": [
+        [
+          {
+            "node": "Build calendar draft",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Notion page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Notion page": {
+      "main": [
+        [
+          {
+            "node": "Build calendar draft",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait, then look again",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait, then look again": {
+      "main": [
+        [
+          {
+            "node": "Find existing page",
             "type": "main",
             "index": 0
           }
