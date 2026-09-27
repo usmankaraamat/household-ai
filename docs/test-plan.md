@@ -103,7 +103,7 @@ Expected, with `timezone` set to `Asia/Karachi`:
 
 Nothing here touches n8n, Notion or the cloud. It all stays on the PC.
 
-1. `pip install pypdf`, for PDFs.
+1. `pip install "pypdf[image]"`, for PDFs (the `[image]` part is needed for scanned pages).
 2. For photos and scanned PDFs, pull a vision model that fits in 8 GB. Check the name on
    ollama.com first, e.g. `ollama pull qwen2.5vl:7b`.
 3. Copy a few documents into `personal/originals/`. The whole `personal/` folder is

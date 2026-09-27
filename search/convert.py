@@ -7,7 +7,8 @@ Put originals in personal/originals/, in subfolders if you like. Each becomes
 personal/docs/<folders--name>.md, which `python -m search.index --docs personal` then
 indexes. Originals are never changed.
 
-- Text PDFs are read with pypdf (pip install pypdf). The rest of the project needs no
+- PDFs are read with pypdf (pip install "pypdf[image]": the extra, Pillow, pulls scanned
+  pages out as images for the vision model). The rest of the project needs no
   packages; this is only for PDFs.
 - Word files (.docx) are read with the standard library.
 - Photos (.jpg, .png) and scanned PDF pages have no text to read. With --vision-model, a
@@ -59,7 +60,7 @@ def read_pdf(path, vision_model):
     try:
         from pypdf import PdfReader
     except ImportError:
-        raise SystemExit("PDFs need pypdf: pip install pypdf")
+        raise SystemExit("PDFs need pypdf: pip install \"pypdf[image]\"")
     pages, scanned = [], []
     for n, page in enumerate(PdfReader(path).pages, 1):
         text = (page.extract_text() or "").strip()
@@ -137,7 +138,10 @@ def main(argv=None):
         if dest.exists() and dest.stat().st_mtime >= f.stat().st_mtime and not a.force:
             continue
         t0 = time.perf_counter()
-        text, how, problem = convert(f, a.vision_model)
+        try:
+            text, how, problem = convert(f, a.vision_model)
+        except Exception as e:  # one unreadable file shouldn't stop the rest
+            text, how, problem = None, None, f"couldn't convert it ({type(e).__name__}: {str(e)[:160]})"
         took = f"{time.perf_counter() - t0:5.1f}s"
         if text is None:
             print(f"  {took}  skipped   {rel}: {problem}")
