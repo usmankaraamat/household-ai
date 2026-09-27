@@ -83,6 +83,7 @@ class Convert(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             for rel in ["Resumes/2024/CV.pdf", "Resumes/2025/CV.pdf", "Resumes/2025/CV.docx",
+                        "Resumes/Usman Karamat.pdf", "Resumes/Usman-Karamat.pdf",
                         "Letters/offer.md", "Resumes/~$CV.docx", "Resumes/desktop.ini", "top.txt"]:
                 (root / rel).parent.mkdir(parents=True, exist_ok=True)
                 (root / rel).write_text("x", encoding="utf-8")
@@ -92,6 +93,8 @@ class Convert(unittest.TestCase):
             "Resumes/2024/CV.pdf": "resumes--2024--cv.md",
             "Resumes/2025/CV.docx": "resumes--2025--cv-docx.md",
             "Resumes/2025/CV.pdf": "resumes--2025--cv-pdf.md",
+            "Resumes/Usman Karamat.pdf": "resumes--usman-karamat-pdf.md",
+            "Resumes/Usman-Karamat.pdf": "resumes--usman-karamat-pdf-2.md",
             "top.txt": "top.md",
         })
 

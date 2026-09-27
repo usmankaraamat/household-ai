@@ -110,7 +110,13 @@ def find_originals(root):
     """Every document under root, in subfolders too, with the name each converts to."""
     files = sorted(f for f in root.rglob("*") if f.is_file() and not SKIP.search(f.name))
     names = [out_name(f, root) for f in files]
-    return [(f, out_name(f, root, with_ext=names.count(n) > 1)) for f, n in zip(files, names)]
+    names = [out_name(f, root, with_ext=names.count(n) > 1) for f, n in zip(files, names)]
+    # "Usman Karamat.pdf" and "Usman-Karamat.pdf" still share a name: number the later ones.
+    seen, unique = {}, []
+    for n in names:
+        seen[n] = seen.get(n, 0) + 1
+        unique.append(n if seen[n] == 1 else f"{n[:-3]}-{seen[n]}.md")
+    return list(zip(files, unique))
 
 
 def main(argv=None):
