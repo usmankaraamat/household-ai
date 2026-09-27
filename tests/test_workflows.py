@@ -274,6 +274,37 @@ class Nodes(unittest.TestCase):
         self.assertFalse(r["ok"])
         self.assertIn("cannot be created twice", r["error"])
 
+    def test_waits_for_the_internet_then_carries_on(self):
+        code = build.NETWORK + """
+let calls = 0; const waits = [];
+const lookup = async h => { calls++; if (calls <= 3) { const e = new Error('no'); e.code = 'ENOTFOUND'; throw e; } };
+const waited = await waitForNetwork(lookup, ['api.notion.com'], 18, 1, i => waits.push(i));
+return { waited, waits };"""
+        self.assertEqual(run_js(code)["result"], {"waited": 3, "waits": [0, 1, 2]})
+
+    def test_gives_up_on_the_internet_with_a_plain_message(self):
+        code = build.NETWORK + """
+const lookup = async () => { const e = new Error('no'); e.code = 'ENOTFOUND'; throw e; };
+await waitForNetwork(lookup, ['api.notion.com', 'www.googleapis.com'], 4, 1);"""
+        r = run_js(code)
+        self.assertFalse(r["ok"])
+        self.assertIn("Couldn't reach api.notion.com or www.googleapis.com", r["error"])
+        self.assertIn("ENOTFOUND", r["error"])
+
+    def test_health_check_is_quiet_when_both_services_answer(self):
+        r = run_js(build.HEALTH, nodes={"Check Notion": {"statusCode": 200, "body": {}},
+                                        "Check Google Calendar": {"statusCode": 200, "body": {}}})
+        self.assertTrue(r["ok"], r.get("error"))
+        self.assertEqual(r["logs"], [])
+
+    def test_health_check_names_each_broken_service_and_why(self):
+        r = run_js(build.HEALTH, nodes={
+            "Check Notion": {"statusCode": 404, "body": {"message": "Could not find database with ID: db123."}},
+            "Check Google Calendar": {"statusCode": 401, "body": {"error": {"message": "Invalid Credentials"}}}})
+        self.assertFalse(r["ok"])
+        self.assertIn("Notion can't open the meeting-notes database: Could not find database", r["error"])
+        self.assertIn("Google Calendar can't open the drafts calendar: Invalid Credentials", r["error"])
+
     def test_failure_log_keeps_the_services_own_reason(self):
         # The shape n8n 2.40 gave the error workflow when Notion rejected a missing property.
         failure = {"workflow": {"name": "Meeting notes to Notion"},

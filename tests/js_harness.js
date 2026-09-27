@@ -14,8 +14,10 @@ process.stdin.on('end', async () => {
     if (!(name in nodes)) throw new Error(`test gave no data for node "${name}"`);
     return Array.isArray(nodes[name]) ? many(nodes[name]) : items(nodes[name]);
   };
+  // fs: the activity log is captured. dns: names always resolve, so no test touches the network.
   const fakeRequire = mod => mod === 'fs'
     ? { appendFileSync: (_path, line) => logs.push(JSON.parse(line)) }
+    : mod === 'dns' ? { promises: { lookup: async () => ({ address: '127.0.0.1', family: 4 }) } }
     : realRequire(mod);
   const body = `return (async () => {\n${code}\n})();`;
   try {

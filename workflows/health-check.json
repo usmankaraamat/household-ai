@@ -1,0 +1,188 @@
+{
+  "id": "hhHealthCheck001",
+  "name": "Household health check",
+  "active": false,
+  "nodes": [
+    {
+      "id": "ce067565-360b-55bd-a14a-f5e971bbd778",
+      "name": "Every hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "574c0e35-d05c-556e-8439-3c5d0564beb3",
+      "name": "Health config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        300
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "63088c12-1064-5db1-a29d-f18bdf0abc83",
+              "name": "notionDatabaseId",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "268836ba-fbcc-5d18-b7e1-75be663613db",
+              "name": "calendarId",
+              "value": "primary",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      }
+    },
+    {
+      "id": "c591f461-76c7-5ba5-9a54-3f216682fa0f",
+      "name": "Check Notion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        300
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.notion.com/v1/databases/{{ $('Health config').first().json.notionDatabaseId }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "notionApi",
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Notion-Version",
+              "value": "2022-06-28"
+            }
+          ]
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "251dfacc-f241-5e0a-93bb-60bbc591d57b",
+      "name": "Check Google Calendar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        300
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://www.googleapis.com/calendar/v3/calendars/{{ encodeURIComponent($('Health config').first().json.calendarId) }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleCalendarOAuth2Api",
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "c551ed70-cc8f-50ec-93a0-43e825a67258",
+      "name": "Report problems",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        300
+      ],
+      "parameters": {
+        "jsCode": "\n// Every hour: can the saved credentials still reach the Notion database and the calendar?\n// In the live test, the Notion connection lost access to the database and nobody knew until\n// an approval failed; Google sign-ins in \"testing\" mode also expire every 7 days. A failure\n// here goes to the error workflow, so the log says what broke before anyone approves a meeting.\nconst notion = $('Check Notion').first().json;\nconst cal = $('Check Google Calendar').first().json;\nconst why = r => {\n  const b = r.body || {};\n  return String(b.message || (b.error && (b.error.message || b.error)) || `HTTP ${r.statusCode}`).slice(0, 200);\n};\nconst problems = [];\nif (notion.statusCode !== 200) problems.push(`Notion can't open the meeting-notes database: ${why(notion)}`);\nif (cal.statusCode !== 200) problems.push(`Google Calendar can't open the drafts calendar: ${why(cal)}`);\nif (problems.length) throw new Error(problems.join(' | '));\nreturn [{ json: { ok: true } }];\n"
+      }
+    }
+  ],
+  "connections": {
+    "Every hour": {
+      "main": [
+        [
+          {
+            "node": "Health config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Health config": {
+      "main": [
+        [
+          {
+            "node": "Check Notion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Notion": {
+      "main": [
+        [
+          {
+            "node": "Check Google Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Google Calendar": {
+      "main": [
+        [
+          {
+            "node": "Report problems",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "hhErrorHandler01"
+  },
+  "pinData": {}
+}

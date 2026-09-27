@@ -12,6 +12,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 MAIN_ID, ERROR_ID, POLL_ID = "mtgToNotion00001", "hhErrorHandler01", "fathomPoller0001"
+HEALTH_ID = "hhHealthCheck001"
 
 # The only choices the approval form offers. Anything else stops the run before a write.
 DECISIONS = ["Approve notes and calendar draft", "Approve notes only", "Reject"]
@@ -269,7 +270,28 @@ log('awaiting_approval', { meeting_id: item.meeting.id, approve_url: $execution.
 return [{ json: item }];
 """
 
-BUILD_NOTION = LOG + OUTBOUND + r"""
+NETWORK = r"""
+// After a reboot n8n can be running before the internet is. A request then fails in
+// seconds with ENOTFOUND, and three quick retries don't outlast Wi-Fi reconnecting (seen in
+// the first live restart test). So wait for the names to resolve, about 3 minutes at most.
+async function waitForNetwork(lookup, hosts, tries = 18, pauseMs = 10000, onWait = () => {}) {
+  for (let i = 0; ; i++) {
+    try {
+      for (const h of hosts) await lookup(h);
+      return i;
+    } catch (e) {
+      if (i >= tries - 1) {
+        throw new Error(`Couldn't reach ${hosts.join(' or ')} after ${Math.round((tries * pauseMs) / 60000)} minutes ` +
+          `(${e.code || e.message}). Check the internet connection, then retry this run.`);
+      }
+      onWait(i, e);
+      await new Promise(r => setTimeout(r, pauseMs));
+    }
+  }
+}
+"""
+
+BUILD_NOTION = LOG + OUTBOUND + NETWORK + r"""
 const DECISIONS = __DECISIONS__;
 const form = $input.first().json;
 const prev = $('Check summary').first().json;
@@ -285,6 +307,9 @@ if (form.Decision === 'Reject') {
 }
 log('approved', { meeting_id: id, decision: form.Decision, note: form['Note for the log'] || '' });
 if (!cfg.notionDatabaseId) throw new Error('Set notionDatabaseId in the Config node');
+const waited = await waitForNetwork(require('dns').promises.lookup, ['api.notion.com', 'www.googleapis.com'], 18, 10000,
+  (i, e) => { if (i === 0) log('waiting_for_network', { meeting_id: id, error: e.code || e.message }); });
+if (waited) log('network_back', { meeting_id: id, waited_seconds: waited * 10 });
 
 const rich = t => [{ type: 'text', text: { content: String(t).slice(0, 1900) } }];
 const block = (type, t, extra = {}) => ({ object: 'block', type, [type]: { rich_text: rich(t), ...extra } });
@@ -445,6 +470,24 @@ log('failed', {
 });
 // Anything that alerts a person (email, phone) goes here: say what failed, never the content.
 return $input.all();
+"""
+
+HEALTH = r"""
+// Every hour: can the saved credentials still reach the Notion database and the calendar?
+// In the live test, the Notion connection lost access to the database and nobody knew until
+// an approval failed; Google sign-ins in "testing" mode also expire every 7 days. A failure
+// here goes to the error workflow, so the log says what broke before anyone approves a meeting.
+const notion = $('Check Notion').first().json;
+const cal = $('Check Google Calendar').first().json;
+const why = r => {
+  const b = r.body || {};
+  return String(b.message || (b.error && (b.error.message || b.error)) || `HTTP ${r.statusCode}`).slice(0, 200);
+};
+const problems = [];
+if (notion.statusCode !== 200) problems.push(`Notion can't open the meeting-notes database: ${why(notion)}`);
+if (cal.statusCode !== 200) problems.push(`Google Calendar can't open the drafts calendar: ${why(cal)}`);
+if (problems.length) throw new Error(problems.join(' | '));
+return [{ json: { ok: true } }];
 """
 
 RETRY = {"retryOnFail": True, "maxTries": 3, "waitBetweenTries": 5000}
@@ -612,6 +655,38 @@ def fathom_workflow():
             "settings": {"executionOrder": "v1", "errorWorkflow": ERROR_ID}, "pinData": {}}
 
 
+def http_get(name, x, url, cred_type, headers=None):
+    """A read that hands every status code to the next node, so a check can report it."""
+    p = {"method": "GET", "url": url, "authentication": "predefinedCredentialType", "nodeCredentialType": cred_type,
+         "options": {"timeout": 30000, "response": {"response": {
+             "fullResponse": True, "neverError": True, "responseFormat": "json"}}}}
+    if headers:
+        p.update(sendHeaders=True, headerParameters={"parameters": [{"name": k, "value": v} for k, v in headers.items()]})
+    return node(name, "httpRequest", 4.2, x, p, **RETRY)
+
+
+def health_workflow():
+    cfg = node("Health config", "set", 3.4, 220, {"assignments": {"assignments": [
+        {"id": str(uuid.uuid5(uuid.NAMESPACE_URL, f"health/{n}")), "name": n, "value": v, "type": "string"}
+        for n, v in [("notionDatabaseId", ""), ("calendarId", "primary")]  # the same as the meeting workflow's Config
+    ]}, "includeOtherFields": False, "options": {}})
+    nodes = [
+        node("Every hour", "scheduleTrigger", 1.2, 0, {"rule": {"interval": [{"field": "hours", "hoursInterval": 1}]}}),
+        cfg,
+        http_get("Check Notion", 440,
+                 "=https://api.notion.com/v1/databases/{{ $('Health config').first().json.notionDatabaseId }}",
+                 "notionApi", NOTION),
+        http_get("Check Google Calendar", 660,
+                 "=https://www.googleapis.com/calendar/v3/calendars/{{ encodeURIComponent($('Health config').first().json.calendarId) }}",
+                 "googleCalendarOAuth2Api"),
+        code("Report problems", 880, HEALTH),
+    ]
+    order = [n["name"] for n in nodes]
+    return {"id": HEALTH_ID, "name": "Household health check", "active": False, "nodes": nodes,
+            "connections": {a: link([b]) for a, b in zip(order, order[1:])},
+            "settings": {"executionOrder": "v1", "errorWorkflow": ERROR_ID}, "pinData": {}}
+
+
 def error_workflow():
     nodes = [node("A household workflow failed", "errorTrigger", 1, 0, {}),
              code("Log the failure", 220, ON_ERROR)]
@@ -621,7 +696,7 @@ def error_workflow():
 
 
 WORKFLOWS = {"meeting-to-notion.json": main_workflow, "fathom-poller.json": fathom_workflow,
-             "error-handler.json": error_workflow}
+             "error-handler.json": error_workflow, "health-check.json": health_workflow}
 
 
 def render(filename):
