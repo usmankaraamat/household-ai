@@ -39,7 +39,18 @@ def citations(text, retrieved):
     """Split the answer's [file.md] citations into ones search actually returned and ones the
     model invented. An invented source is worse than none: it looks checkable and isn't."""
     named = sorted(set(re.findall(r"\[([\w.-]+\.md)\]", text)))
-    return [n for n in named if n in retrieved], [n for n in named if n not in retrieved]
+    # Converted personal files have long names ("resumes--documents--degree.md"), and the
+    # model shortens them ("degree.md") or swaps _ and -. A name that matches exactly one
+    # returned file that way is that file; one that matches none, or several, isn't checkable.
+    norm = lambda s: s.lower().replace("_", "-")  # noqa: E731
+    cited, invented = set(), []
+    for n in named:
+        matches = {r for r in retrieved if norm(r) == norm(n) or norm(r).endswith("--" + norm(n))}
+        if len(matches) == 1:
+            cited.add(matches.pop())
+        else:
+            invented.append(n)
+    return sorted(cited), invented
 
 
 def answer(question, model, hits=None, today=None, **chat_kw):

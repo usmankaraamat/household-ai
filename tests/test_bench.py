@@ -52,6 +52,13 @@ class Citations(unittest.TestCase):
         cited, invented = citations("Rent is $4,850. Sources: [lease.md] [tax-return.md]", ["lease.md", "passports.md"])
         self.assertEqual((cited, invented), (["lease.md"], ["tax-return.md"]))
 
+    def test_shortened_or_respelled_names_of_returned_files_count(self):
+        retrieved = ["resumes--documents--degree.md", "resumes--usman_karamat_cv-docx.md",
+                     "a--cv.md", "b--cv.md"]
+        cited, invented = citations("[degree.md] [resumes--usman-karamat_cv-docx.md] [cv.md] [passport.md]", retrieved)
+        self.assertEqual(cited, ["resumes--documents--degree.md", "resumes--usman_karamat_cv-docx.md"])
+        self.assertEqual(invented, ["cv.md", "passport.md"])  # cv.md fits two files, so it's not checkable
+
 
 class LeakedReasoning(unittest.TestCase):
     def test_paired_and_unpaired_reasoning_are_removed(self):
