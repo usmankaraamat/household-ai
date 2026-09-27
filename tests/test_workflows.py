@@ -249,6 +249,24 @@ class Nodes(unittest.TestCase):
         self.assertFalse(r["ok"])
         self.assertIn("cannot be created twice", r["error"])
 
+    def test_failure_log_keeps_the_services_own_reason(self):
+        # The shape n8n 2.40 gave the error workflow when Notion rejected a missing property.
+        failure = {"workflow": {"name": "Meeting notes to Notion"},
+                   "execution": {"id": "3", "url": "http://localhost:5678/workflow/x/executions/3",
+                                 "lastNodeExecuted": "Find existing page",
+                                 "error": {"message": "Bad request - please check your parameters",
+                                           "description": "Could not find property with name or id: Meeting ID",
+                                           "httpCode": "400"}}}
+        line = run_js(build.ON_ERROR, failure)["logs"][0]
+        self.assertEqual(line["step"], "failed")
+        self.assertEqual(line["node"], "Find existing page")
+        self.assertEqual(line["detail"], "Could not find property with name or id: Meeting ID")
+        self.assertEqual(line["http_code"], "400")
+        long = {**failure, "execution": {**failure["execution"], "error": {"message": "x" * 5000}}}
+        line = run_js(build.ON_ERROR, long)["logs"][0]
+        self.assertEqual(len(line["error"]), 300)
+        self.assertNotIn("detail", line)
+
 
 def fathom_meeting(rid, transcript=True, **kw):
     m = {"recording_id": rid, "title": "Impromptu Google Meet", "meeting_title": "Weekly check-in",

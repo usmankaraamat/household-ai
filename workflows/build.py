@@ -355,11 +355,18 @@ ON_ERROR = LOG + r"""
 // Runs when any household workflow fails after its retries. The failed run keeps its
 // data in n8n, so it can be retried from the Executions list once the cause is fixed.
 const e = $input.first().json;
+const err = (e.execution && e.execution.error) || {};
+// For a failed API call, n8n's message is generic ("Bad request - please check your
+// parameters"); the service's own reason ("Could not find property ... Meeting ID") is in
+// description. Log both, capped, since a service's error can quote part of the request.
+const cap = t => (typeof t === 'string' && t ? t.slice(0, 300) : undefined);
 log('failed', {
   failed_workflow: e.workflow && e.workflow.name,
   failed_execution: e.execution && e.execution.id,
   node: e.execution && e.execution.lastNodeExecuted,
-  error: e.execution && e.execution.error && e.execution.error.message,
+  error: cap(err.message),
+  detail: err.description !== err.message ? cap(err.description) : undefined,
+  http_code: err.httpCode,
   open_in_n8n: e.execution && e.execution.url,
 });
 // Anything that alerts a person (email, phone) goes here: say what failed, never the content.
