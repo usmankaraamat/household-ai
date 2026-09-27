@@ -65,10 +65,30 @@ Then check each step:
 - [ ] Nothing in `logs/household.jsonl` contains the numbers you said. It records steps and
       counts, not content.
 
+### Without a clean recording
+
+If the recording isn't usable, or Fathom's API returns the original transcript rather than
+your edits, test the content with the sample instead. It holds the same meeting with made-up
+numbers, plus the lines above. On Windows, type `curl.exe`: in PowerShell, `curl` is a
+different command.
+
+    curl.exe -X POST http://localhost:5678/webhook/meeting-transcript -H "Content-Type: application/json" --data "@data/sample-transcripts/impromptu-2026-09-27.json"
+
+Expected, with `timezone` set to `Asia/Karachi`:
+
+| In the transcript | Expected |
+|---|---|
+| Phone 03001234567 | `[removed: long number]`. Written as 0300-1234567 it would stay: the check removes IDs, not phone numbers |
+| CNIC, card, date of birth | Each `[removed: …]` |
+| Dinner tomorrow at 7, employer at 3 tomorrow | At most one calendar draft, on 2026-09-28. Note which one the model picks and what end time it guesses for dinner |
+| Padel after three days | An action item or decision, not a draft: it has no time. If it has a date, 2026-09-30 |
+| "The report by the end of next week" | 27 Sep is a Sunday, so "next week" is ambiguous: anything from Fri 2 Oct to Sun 11 Oct is defensible, as is no date. Before 2 Oct is a mistake. This is exactly the kind of date a person should check in the approval form |
+| The rambling and the Urdu at the end | Left out of the summary, or mentioned briefly. Nothing invented from it |
+
 ## Failure tests
 
 - [ ] **Reject** a second dummy meeting. Nothing is written to Notion or the calendar.
-- [ ] **Same meeting twice:** send the sample meeting with the `curl` command in the README,
+- [ ] **Same meeting twice:** send a sample meeting with the `curl.exe` command above,
       approve it (notes and calendar), then send it again and approve that too. Both runs
       get the same meeting ID, so the second logs `notion_page_existed` and
       `draft already existed`, and there's still only one page and one event.
