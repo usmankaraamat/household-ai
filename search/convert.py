@@ -22,6 +22,7 @@ import base64
 import datetime
 import re
 import sys
+import time
 import zipfile
 from pathlib import Path
 from xml.etree import ElementTree
@@ -129,22 +130,24 @@ def main(argv=None):
     files = find_originals(ORIGINALS)
     if not files:
         sys.exit(f"Put your documents in {ORIGINALS} first.")
-    done = 0
+    done, started = 0, time.perf_counter()
     for f, name in files:
         dest = DOCS / name
         rel = f.relative_to(ORIGINALS).as_posix()
         if dest.exists() and dest.stat().st_mtime >= f.stat().st_mtime and not a.force:
             continue
+        t0 = time.perf_counter()
         text, how, problem = convert(f, a.vision_model)
+        took = f"{time.perf_counter() - t0:5.1f}s"
         if text is None:
-            print(f"  skipped   {rel}: {problem}")
+            print(f"  {took}  skipped   {rel}: {problem}")
             continue
         header = (f"# {f.name}\n\n> Converted from originals/{rel} on {datetime.date.today().isoformat()} ({how}). "
                   "Check anything important against the original.\n\n")
         dest.write_text(header + text.strip() + "\n", encoding="utf-8")
         done += 1
-        print(f"  converted {rel} -> {dest.name}" + (f"  (partly: {problem})" if problem else ""))
-    print(f"{done} converted. Next: python -m search.index --docs personal")
+        print(f"  {took}  converted {rel} -> {dest.name}" + (f"  (partly: {problem})" if problem else ""))
+    print(f"{done} converted in {time.perf_counter() - started:.0f}s. Next: python -m search.index --docs personal")
 
 
 if __name__ == "__main__":
