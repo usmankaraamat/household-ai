@@ -35,8 +35,13 @@ DOCS = ROOT / "personal" / "docs"
 IMAGES = {".jpg", ".jpeg", ".png", ".webp"}
 MIN_PAGE_CHARS = 40  # a PDF page with less text than this is treated as a scan
 
-TRANSCRIBE = ("Transcribe all the text in this image exactly as written, line by line, keeping "
-              "numbers, dates and names exactly. Do not summarize, translate or add anything. "
+# Forms and ID cards print labels side by side ("Date of Issue  Date of Expiry") with both
+# values on the next line; transcribed that way, a model answering questions later can't tell
+# which date is which. So each value goes on its own label's line.
+TRANSCRIBE = ("Transcribe all the text in this image exactly as written, keeping numbers, dates "
+              "and names exactly. Do not summarize, translate or add anything. If it is a form or "
+              "card with labelled fields, write each field on its own line as 'Label: value', "
+              "pairing every value with its own label even when labels are printed side by side. "
               "Write [unreadable] for anything you cannot read.")
 
 
