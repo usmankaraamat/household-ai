@@ -75,6 +75,30 @@ class Convert(unittest.TestCase):
         self.assertIsNone(text)
         self.assertIn("--vision-model", problem)
 
+    def test_a_looping_transcription_is_collapsed_and_flagged(self):
+        looped = "IDENTITY CARD\n" + "Holder's Signature\n" * 733 + "35202-1234567-1"
+        text, flagged = convert.collapse_loops(looped)
+        self.assertTrue(flagged)
+        self.assertEqual(text.count("Holder's Signature"), 3)
+        self.assertIn("repeated this line 730 more times", text)
+        self.assertIn("35202-1234567-1", text)
+        # Ordinary text, including blank lines and a digit repeated inside a line, is left alone.
+        normal = "Card 4111 1111 1111 1111\n\n\nName: Usman\nName: Usman"
+        self.assertEqual(convert.collapse_loops(normal), (normal, False))
+
+    def test_images_are_sent_as_small_pngs(self):
+        try:
+            import io
+            from PIL import Image
+        except ImportError:
+            self.skipTest("Pillow is not installed")
+        buf = io.BytesIO()
+        Image.new("CMYK", (4000, 3000)).save(buf, "JPEG")
+        out = Image.open(io.BytesIO(convert.prepare_image(buf.getvalue())))
+        self.assertEqual(out.format, "PNG")
+        self.assertEqual(out.mode, "RGB")
+        self.assertEqual(max(out.size), convert.MAX_SIDE)
+
     def test_output_names_are_safe(self):
         self.assertEqual(convert.out_name(Path("HBL Statement (Aug).pdf")), "hbl-statement-aug.md")
 

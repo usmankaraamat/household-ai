@@ -21,6 +21,7 @@ that matters should be checked against the original.
 import argparse
 import base64
 import datetime
+import itertools
 import re
 import sys
 import time
@@ -47,13 +48,53 @@ def read_docx(path):
     return "\n\n".join(p for p in paras if p.strip())
 
 
+MAX_SIDE = 1600      # pixels; a phone photo shrunk to this still has readable ID digits
+MAX_TOKENS = 2048    # a full dense page fits; a runaway loop stops here instead of running for minutes
+LOOP_KEEP = 3
+
+
+def prepare_image(data):
+    """Any image as a plain PNG no bigger than MAX_SIDE. Ollama rejected an image pypdf pulled
+    out of a scanned PDF (400 Bad Request), and large photos are slow to read."""
+    try:
+        import io
+        from PIL import Image
+    except ImportError:
+        return data
+    im = Image.open(io.BytesIO(data)).convert("RGB")
+    im.thumbnail((MAX_SIDE, MAX_SIDE))
+    buf = io.BytesIO()
+    im.save(buf, "PNG")
+    return buf.getvalue()
+
+
+def collapse_loops(text, keep=LOOP_KEEP):
+    """A small vision model can get stuck repeating one line (the back of a CNIC came out as
+    733 copies of it). Keep a few, say how many were dropped, and report that it happened, so
+    a person checks the original. Not done with a repetition penalty: ID numbers repeat digits
+    by nature, and penalising repeats could make the model misread them."""
+    out, looped = [], False
+    for line, group in itertools.groupby(text.splitlines()):
+        n = len(list(group))
+        if n > keep and line.strip():
+            out += [line] * keep + [f"[the model repeated this line {n - keep} more times: check the original]"]
+            looped = True
+        else:
+            out += [line] * n
+    return "\n".join(out), looped
+
+
 def transcribe(image_bytes, model):
+    """Returns (text, looped)."""
     from search.llm import OLLAMA, _request
     r = _request(f"{OLLAMA}/api/chat", {
-        "model": model, "stream": False, "options": {"temperature": 0},
+        "model": model, "stream": False, "options": {"temperature": 0, "num_predict": MAX_TOKENS},
         "messages": [{"role": "user", "content": TRANSCRIBE,
-                      "images": [base64.b64encode(image_bytes).decode()]}]})
-    return r["message"]["content"].strip()
+                      "images": [base64.b64encode(prepare_image(image_bytes)).decode()]}]})
+    text, looped = collapse_loops(r["message"]["content"].strip())
+    if r.get("done_reason") == "length":
+        text, looped = text + "\n[cut off: the model hit its output limit: check the original]", True
+    return text, looped
 
 
 def read_pdf(path, vision_model):
@@ -61,18 +102,20 @@ def read_pdf(path, vision_model):
         from pypdf import PdfReader
     except ImportError:
         raise SystemExit("PDFs need pypdf: pip install \"pypdf[image]\"")
-    pages, scanned = [], []
+    pages, scanned, looped = [], [], []
     for n, page in enumerate(PdfReader(path).pages, 1):
         text = (page.extract_text() or "").strip()
         if len(text) >= MIN_PAGE_CHARS:
             pages.append(f"## Page {n}\n\n{text}")
         elif vision_model and page.images:
-            read = "\n\n".join(transcribe(img.data, vision_model) for img in page.images)
-            pages.append(f"## Page {n} (transcribed from a scan)\n\n{read}")
+            reads = [transcribe(img.data, vision_model) for img in page.images]
+            if any(loop for _, loop in reads):
+                looped.append(n)
+            pages.append(f"## Page {n} (transcribed from a scan)\n\n" + "\n\n".join(t for t, _ in reads))
         else:
             scanned.append(n)
             pages.append(f"## Page {n}\n\n[scanned page, not converted: run with --vision-model]")
-    return "\n\n".join(pages), scanned
+    return "\n\n".join(pages), scanned, looped
 
 
 def convert(path, vision_model=None):
@@ -83,12 +126,16 @@ def convert(path, vision_model=None):
     if ext == ".docx":
         return read_docx(path), "read from Word", None
     if ext == ".pdf":
-        text, scanned = read_pdf(path, vision_model)
-        return text, "read from PDF", f"pages {scanned} are scans" if scanned else None
+        text, scanned, looped = read_pdf(path, vision_model)
+        problems = ([f"pages {scanned} are scans"] if scanned else []) + \
+                   ([f"pages {looped}: the transcription looped or was cut off, check the original"] if looped else [])
+        return text, "read from PDF", "; ".join(problems) or None
     if ext in IMAGES:
         if not vision_model:
             return None, None, "a photo or scan: run with --vision-model"
-        return transcribe(path.read_bytes(), vision_model), f"transcribed by {vision_model}", None
+        text, looped = transcribe(path.read_bytes(), vision_model)
+        return text, f"transcribed by {vision_model}", \
+            "the transcription looped or was cut off, check the original" if looped else None
     return None, None, f"{ext} files aren't supported"
 
 
