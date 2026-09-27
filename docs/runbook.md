@@ -19,12 +19,19 @@ what goes where and why.
 
 ### Approving meeting notes
 
-1. Open the approval link. *(In this first version the link is in the activity log and in
-   n8n's Executions list. Sending it to your phone is the next step.)*
-2. Read the summary, and **check dates and times especially.** The home model sometimes
-   gets simple date calculations slightly wrong, like "end of next week". What you see is
-   exactly what will be sent. If an account number, card number or date of birth came up
-   in the meeting, it has already been removed, and the page says so.
+1. Open the approval link. *(In this first version the link is only in the activity log.
+   Sending it to your phone is the next step.)* To print the newest one:
+
+       grep -o '"approve_url":"[^"]*"' logs/household.jsonl | tail -1
+
+   Check the number after `form-waiting/` is the newest run. An older tab left open still
+   shows a form, but answering it does nothing once that run has finished.
+2. Read the summary, and **check dates and times especially.** A calendar draft's date is
+   worked out from the words said ("tomorrow", "Friday", "October 10"), and the form shows
+   those words next to the date: check they match. Vague deadlines like "end of next week"
+   are left without a date on purpose, so you choose one. What you see is exactly what will
+   be sent. If an account number, card number or date of birth came up in the meeting, it
+   has already been removed, and the page says so.
 3. Choose one:
    - **Approve notes and calendar draft**: the Notion page is created, and so is a draft
      event.
@@ -65,7 +72,9 @@ It takes a few seconds. The index stays on the home computer.
 | "This transcript is about N tokens and the model is set to …" | The meeting is longer than the current setting allows | Ask the person who looks after the system to raise `numCtx`, or send the meeting in two halves |
 | Calendar drafts stopped appearing, but Notion pages still do | Google's sign-in has expired | In n8n, go to **Credentials**, open **Google Calendar account**, click **Sign in with Google** again, then retry the failed run |
 | "Could not find database" | The Notion database was moved or stopped being shared | In Notion, open the database, click **•••**, then **Connections**, and add **household-ai** |
-| "Could not find property with name or id: Meeting ID" | The Notion database is missing the column retries rely on | In Notion, add a **Text** property named **Meeting ID** to the database, then retry the run |
+| "Could not find property with name or id: Meeting ID" | The Notion database is missing the column retries rely on | In Notion, click the **+** at the end of the database's column headers (not **+ New page**, which adds a row), choose **Text**, name it **Meeting ID**, then retry the run |
+| The same Fathom meeting asks for approval twice | The poller was run by hand with **Execute workflow**. n8n doesn't remember what a hand run sent, so the next scheduled check sends it again | Approving both is safe: they share a Meeting ID, so there's still one page and one draft. Don't run the poller by hand; it checks every 10 minutes on its own |
+| "No calendar draft: … couldn't tell which day …" | The meeting named a day in words the system doesn't turn into a date | Choose **Approve notes only** and add the event yourself |
 | "Stopped before sending: the payload still contains …" | Something that looks like an ID or account number was about to leave the house | Nothing was written. Tell the person who looks after the system |
 | "… is not one of the approval choices" | The approval form was answered in an unexpected way | Nothing was written. Retry the run and choose one of the three options |
 | Answers are very slow | The model is dealing with a lot of text at once, or something else is using the computer heavily | Wait. If it happens often, tell the person who looks after the system |
@@ -87,6 +96,10 @@ summary waits for you to retry it. It is never quietly sent to an outside servic
 To see only the failures in the log:
 
     grep '"failed"' logs/household.jsonl
+
+Each failure names the step that failed. `error` is n8n's summary, which for a rejected
+request is often just "Bad request"; `detail` is the service's own reason, such as Notion
+saying which property it couldn't find.
 
 ## Five minutes, once a month
 
