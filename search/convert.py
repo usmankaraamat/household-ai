@@ -22,6 +22,7 @@ import argparse
 import base64
 import datetime
 import itertools
+import json
 import re
 import sys
 import time
@@ -89,16 +90,43 @@ def collapse_loops(text, keep=LOOP_KEEP):
     return "\n".join(out), looped
 
 
+# Asking in words for "Label: value" lines didn't work: the model still copied the card's
+# side-by-side layout. Structured output does, because the reply has to be a list of pairs.
+FIELDS = ("List every labelled field on this card or form as label and value, exactly as printed. "
+          "Pair each value with its own label, even when labels are printed side by side.")
+FIELDS_SCHEMA = {"type": "object", "properties": {"fields": {"type": "array", "items": {
+    "type": "object", "properties": {"label": {"type": "string"}, "value": {"type": "string"}},
+    "required": ["label", "value"]}}}, "required": ["fields"]}
+FORM_MAX_CHARS = 1500  # cards and forms are short; long documents like CVs skip the second pass
+
+
+def format_fields(reply):
+    """The structured reply as 'Label: value' lines, or '' if it isn't usable."""
+    try:
+        fields = json.loads(reply)["fields"]
+    except (ValueError, KeyError, TypeError):
+        return ""
+    lines = [f"{str(f.get('label', '')).strip()}: {str(f.get('value', '')).strip()}" for f in fields
+             if isinstance(f, dict) and str(f.get("label", "")).strip() and str(f.get("value", "")).strip()]
+    return "\n".join(dict.fromkeys(lines))  # drop repeats, keep order
+
+
 def transcribe(image_bytes, model):
-    """Returns (text, looped)."""
+    """Returns (text, looped). Short results (cards, forms) get a second, structured pass
+    that pairs every value with its label, added below the plain transcription."""
     from search.llm import OLLAMA, _request
-    r = _request(f"{OLLAMA}/api/chat", {
+    image = base64.b64encode(prepare_image(image_bytes)).decode()
+    ask = lambda prompt, **extra: _request(f"{OLLAMA}/api/chat", {  # noqa: E731
         "model": model, "stream": False, "options": {"temperature": 0, "num_predict": MAX_TOKENS},
-        "messages": [{"role": "user", "content": TRANSCRIBE,
-                      "images": [base64.b64encode(prepare_image(image_bytes)).decode()]}]})
+        "messages": [{"role": "user", "content": prompt, "images": [image]}], **extra})
+    r = ask(TRANSCRIBE)
     text, looped = collapse_loops(r["message"]["content"].strip())
     if r.get("done_reason") == "length":
         text, looped = text + "\n[cut off: the model hit its output limit: check the original]", True
+    if len(text) <= FORM_MAX_CHARS:
+        fields = format_fields(ask(FIELDS, format=FIELDS_SCHEMA)["message"]["content"])
+        if fields:
+            text += "\n\n### Fields (read separately, as label: value)\n\n" + fields
     return text, looped
 
 

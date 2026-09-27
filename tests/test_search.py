@@ -1,4 +1,5 @@
 """Turning personal documents into searchable text, and splitting long sections."""
+import json
 import sys
 import tempfile
 import unittest
@@ -85,6 +86,14 @@ class Convert(unittest.TestCase):
         # Ordinary text, including blank lines and a digit repeated inside a line, is left alone.
         normal = "Card 4111 1111 1111 1111\n\n\nName: Usman\nName: Usman"
         self.assertEqual(convert.collapse_loops(normal), (normal, False))
+
+    def test_card_fields_become_label_value_lines(self):
+        reply = json.dumps({"fields": [
+            {"label": "Date of Issue", "value": "01.02.2020"}, {"label": "Date of Expiry", "value": "01.02.2030"},
+            {"label": "Holder's Signature", "value": ""}, {"label": "Date of Issue", "value": "01.02.2020"}]})
+        self.assertEqual(convert.format_fields(reply), "Date of Issue: 01.02.2020\nDate of Expiry: 01.02.2030")
+        self.assertEqual(convert.format_fields("not json"), "")
+        self.assertEqual(convert.format_fields('{"fields": "oops"}'), "")
 
     def test_images_are_sent_as_small_pngs(self):
         try:
