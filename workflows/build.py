@@ -66,15 +66,72 @@ function assertClean(payload) {
 
 # Calendar proposals are checked as real dates and times, not just their shape.
 EVENT_CHECK = r"""
+// The model only reports the words used for the day ("tomorrow", "Friday", "October 10");
+// this code turns them into a date. In live tests the model put "tomorrow" on the meeting
+// day itself, so date arithmetic is not left to it. Words it can't place mean no draft.
+function resolveDay(words, meetingDate) {
+  const md = /^(\d{4})-(\d{2})-(\d{2})$/.exec(meetingDate || '');
+  const w = String(words || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  if (!md || !w) return null;
+  const base = Date.UTC(+md[1], +md[2] - 1, +md[3]);
+  const iso = t => new Date(t).toISOString().slice(0, 10);
+  const add = n => iso(base + n * 864e5);
+  const NUM = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+  const num = s => (/^\d+$/.test(s) ? +s : NUM[s]);
+  let m;
+  if ((m = /\b(\d{4}-\d{2}-\d{2})\b/.exec(w))) return m[1];
+  if (/\bday after tomorrow\b/.test(w)) return add(2);
+  if (/\btomorrow\b/.test(w)) return add(1);
+  if (/\b(today|tonight|this (morning|afternoon|evening))\b/.test(w)) return add(0);
+  if ((m = /\b(?:in|after) (\d+|an?|one|two|three|four|five|six|seven|eight|nine|ten) days?\b/.exec(w))) return add(num(m[1]));
+  if ((m = /\b(?:in|after) (\d+|an?|one|two|three|four) weeks?\b/.exec(w))) return add(7 * num(m[1]));
+  // A date that was said wins over a weekday name ("Saturday, October 10"); if both are
+  // said and don't match, it's not guessed.
+  const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const wd = DAYS.findIndex(d => new RegExp(`\\b${d}\\b`).test(w));
+  const explicit = explicitDate(w, md, base, meetingDate);
+  if (explicit) {
+    const real = new Date(`${explicit}T00:00:00Z`);
+    if (wd >= 0 && !isNaN(real) && real.getUTCDay() !== wd) return null;
+    return explicit;
+  }
+  if (wd >= 0) return add(((wd - new Date(base).getUTCDay() + 7) % 7) || 7);
+  return null;
+}
+
+function explicitDate(w, md, base, meetingDate) {
+  const pad = n => String(n).padStart(2, '0');
+  let m;
+  const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+  const mon = '(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?';
+  m = new RegExp(`\\b${mon} (\\d{1,2})(?:st|nd|rd|th)?\\b`).exec(w) || new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)? (?:of )?${mon}`).exec(w);
+  if (m) {
+    const [month, day] = /^\d/.test(m[1]) ? [MONTHS.indexOf(m[2]), +m[1]] : [MONTHS.indexOf(m[1]), +m[2]];
+    const date = y => `${y}-${pad(month + 1)}-${pad(day)}`;
+    const next = date(+md[1] + 1);
+    // Said in December about "January 5": that's next year. Otherwise keep the year, and a
+    // date before the meeting is flagged below rather than silently moved.
+    return date(+md[1]) < meetingDate && Date.parse(next) - base <= 120 * 864e5 ? next : date(+md[1]);
+  }
+  if ((m = /\bthe (\d{1,2})(?:st|nd|rd|th)\b/.exec(w))) {
+    const d = +m[1], y = +md[1], mo = +md[2];
+    return d >= +md[3] ? `${y}-${pad(mo)}-${pad(d)}` : mo === 12 ? `${y + 1}-01-${pad(d)}` : `${y}-${pad(mo + 1)}-${pad(d)}`;
+  }
+  return null;
+}
+
 function checkEvent(ev, meetingDate) {
   if (!ev || !ev.needed) return { event: null, problem: null };
-  const d = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ev.date || '');
+  const date = resolveDay(ev.day_words, meetingDate);
+  const d = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date || '');
   const minutes = s => {
-    const m = /^(\d{2}):(\d{2})$/.exec(s || '');
+    const m = /^(\d{1,2}):(\d{2})$/.exec(s || '');
     return m && +m[1] < 24 && +m[2] < 60 ? +m[1] * 60 + +m[2] : null;
   };
+  const hhmm = n => `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`;
   if (!String(ev.title || '').trim()) return { event: null, problem: 'it has no title' };
-  if (!d) return { event: null, problem: `"${ev.date}" is not a date` };
+  if (!d) return { event: null, problem: `it couldn't tell which day "${ev.day_words || ''}" means` };
+  ev = { ...ev, date };
   const day = new Date(Date.UTC(+d[1], +d[2] - 1, +d[3]));
   if (day.getUTCFullYear() !== +d[1] || day.getUTCMonth() !== +d[2] - 1 || day.getUTCDate() !== +d[3]) {
     return { event: null, problem: `${ev.date} is not a real date` };
@@ -82,11 +139,15 @@ function checkEvent(ev, meetingDate) {
   if (/^\d{4}-\d{2}-\d{2}$/.test(meetingDate || '') && ev.date < meetingDate) {
     return { event: null, problem: `${ev.date} is before the meeting itself` };
   }
-  const start = minutes(ev.start), end = minutes(ev.end);
-  if (start === null || end === null) return { event: null, problem: `${ev.start}-${ev.end} is not a valid time` };
-  if (end <= start) return { event: null, problem: `it ends (${ev.end}) before it starts (${ev.start})` };
+  const start = minutes(ev.start);
+  if (start === null) return { event: null, problem: `"${ev.start}" is not a valid start time` };
+  // No end said (the model then leaves it blank or copies the start): one hour.
+  let end = minutes(ev.end);
+  if (end === null || end === start) end = start + 60;
+  if (end >= 24 * 60) return { event: null, problem: 'it runs past midnight' };
+  if (end < start) return { event: null, problem: `it ends (${ev.end}) before it starts (${ev.start})` };
   if (end - start > 12 * 60) return { event: null, problem: 'it is longer than 12 hours' };
-  return { event: ev, problem: null };
+  return { event: { ...ev, start: hhmm(start), end: hhmm(end) }, problem: null };
 }
 """
 
@@ -110,13 +171,26 @@ const meetingId = crypto.createHash('sha256')
   .digest('hex').slice(0, 32);
 log('received', { title: m.title, meeting_id: meetingId, chars: m.transcript.length, est_tokens: estTokens });
 
+// Small local models get date arithmetic wrong ("tomorrow" became the meeting day, "end of
+// next week" became the day after). So they don't calculate: they look dates up in a table.
+const DAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+let calendar = '';
+if (/^\d{4}-\d{2}-\d{2}$/.test(m.date || '')) {
+  const start = new Date(`${m.date}T00:00:00Z`);
+  calendar = '\n\nDates (look dates up here; do not calculate them):\n' + Array.from({ length: 15 }, (_, i) => {
+    const d = new Date(start.getTime() + i * 864e5);
+    const tag = i === 0 ? ' (meeting day, "today")' : i === 1 ? ' ("tomorrow")' : '';
+    return `${DAY[d.getUTCDay()]} ${d.toISOString().slice(0, 10)}${tag}`;
+  }).join('\n');
+}
+
 const SYSTEM = `You summarize a family's meeting transcript for their shared notes. Use only what was said.
 Return JSON with:
-- summary: 2 to 4 plain sentences.
-- decisions: what was agreed, one short line each.
-- action_items: one per task, with owner (first name), task, and due (YYYY-MM-DD if a date was said, otherwise "").
-- event: if they agreed on a specific appointment with a date and a time, needed=true with title, date (YYYY-MM-DD), start and end (HH:MM, 24-hour). Otherwise needed=false and empty strings.
-The meeting date is given, so resolve words like "Friday" or "the 10th" to real dates.`;
+- summary: 2 to 4 plain sentences about plans, decisions and tasks.
+- decisions: plans the group agreed on, one short line each.
+- action_items: every task someone took on ("I'll send...", "I will call..."), with owner (first name), task, and due (YYYY-MM-DD only if a specific day was said; for vague deadlines like "end of next week" or "soon", use "" and keep those words in the task).
+- event: the first plan that has both a day and a clock time. needed=true with title, day_words (all the words used for the day, including any date that was said, like "tomorrow", "Friday", "Saturday, October 10", "the 10th" or "after three days"), start and end (HH:MM, 24-hour; end only if an end time was said, like "10 to 11", otherwise ""). If no plan has both a day and a time, needed=false and empty strings.
+Leave out small talk, feelings, and anything that isn't a plan, decision or task. Never repeat phone, ID, card or account numbers, or dates of birth.`;
 
 const str = { type: 'string' };
 const schema = {
@@ -125,7 +199,7 @@ const schema = {
     summary: str,
     decisions: { type: 'array', items: str },
     action_items: { type: 'array', items: { type: 'object', properties: { owner: str, task: str, due: str }, required: ['owner', 'task', 'due'] } },
-    event: { type: 'object', properties: { needed: { type: 'boolean' }, title: str, date: str, start: str, end: str }, required: ['needed', 'title', 'date', 'start', 'end'] },
+    event: { type: 'object', properties: { needed: { type: 'boolean' }, title: str, day_words: str, start: str, end: str }, required: ['needed', 'title', 'day_words', 'start', 'end'] },
   },
   required: ['summary', 'decisions', 'action_items', 'event'],
 };
@@ -137,7 +211,7 @@ const request = {
   options: { num_ctx: cfg.numCtx, temperature: 0 },
   messages: [
     { role: 'system', content: SYSTEM },
-    { role: 'user', content: `Meeting: ${m.title}\nDate: ${m.date}\nAttendees: ${(m.attendees || []).join(', ')}\n\nTranscript:\n${m.transcript}` },
+    { role: 'user', content: `Meeting: ${m.title}\nDate: ${m.date}\nAttendees: ${(m.attendees || []).join(', ')}${calendar}\n\nTranscript:\n${m.transcript}` },
   ],
 };
 if (cfg.disableThinking) request.think = false;
@@ -181,7 +255,7 @@ const lines = [
   out.summary, '',
   'Decisions:', ...out.decisions.map(d => `- ${d}`), '',
   'Action items:', ...out.action_items.map(a => `- ${a.owner}: ${a.task}${a.due ? ` (by ${a.due})` : ''}`), '',
-  event ? `Proposed calendar draft: ${event.title}, ${event.date} ${event.start}-${event.end}`
+  event ? `Proposed calendar draft: ${event.title}, ${event.date} ${event.start}-${event.end} (the date comes from "${event.day_words}": check it)`
     : problem ? `No calendar draft: the model proposed an event, but ${problem}.` : 'No calendar event proposed.',
 ];
 return [{ json: { meeting: { ...meeting, title }, summary: out, event, model: r.model, review: lines.join('\n') } }];

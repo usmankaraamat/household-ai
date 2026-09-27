@@ -23,7 +23,8 @@ CONFIG = {"numCtx": 16384, "model": "granite4.2:8b", "disableThinking": True, "n
           "notionTitleProperty": "Name", "notionDateProperty": "Date", "notionMeetingIdProperty": "Meeting ID",
           "calendarId": "primary", "timezone": "America/Los_Angeles"}
 MEETING = {"id": "a" * 32, "title": "Sunday family sync", "date": "2026-09-20", "attendees": ["Dana", "Chris"]}
-EVENT = {"needed": True, "title": "Flu shots", "date": "2026-10-10", "start": "10:00", "end": "11:00"}
+EVENT = {"needed": True, "title": "Flu shots", "day_words": "Saturday, October 10", "date": "2026-10-10",
+         "start": "10:00", "end": "11:00"}
 
 
 def run_js(code, input=None, nodes=None, run_index=0, static=None):
@@ -134,15 +135,39 @@ class CalendarValidation(unittest.TestCase):
         self.assertIsNone(self.check()["problem"])
 
     def test_rejects_impossible_or_backwards_events(self):
-        bad = {"impossible date": {"date": "2026-02-30"}, "not a date": {"date": "next Tuesday"},
+        bad = {"impossible date": {"day_words": "February 30"}, "day it can't place": {"day_words": "sometime soon"},
+               "weekday and date disagree": {"day_words": "Sunday, October 10"},
                "impossible time": {"start": "25:61"}, "ends before it starts": {"start": "11:00", "end": "10:00"},
-               "zero length": {"end": "10:00"}, "over 12 hours": {"start": "06:00", "end": "19:00"},
-               "before the meeting": {"date": "2026-09-01"}, "no title": {"title": "  "}}
+               "over 12 hours": {"start": "06:00", "end": "19:00"}, "past midnight": {"start": "23:30", "end": ""},
+               "before the meeting": {"day_words": "September 1"}, "no title": {"title": "  "}}
         for label, change in bad.items():
             with self.subTest(label):
                 r = self.check(**change)
                 self.assertIsNone(r["event"])
                 self.assertTrue(r["problem"])
+
+    def test_the_day_comes_from_the_words_not_the_model(self):
+        # Meeting on Sunday 2026-09-20. The model's own "date" is ignored.
+        cases = {"tomorrow": "2026-09-21", "tomorrow at 7": "2026-09-21", "today": "2026-09-20",
+                 "day after tomorrow": "2026-09-22", "after three days": "2026-09-23", "in 2 weeks": "2026-10-04",
+                 "Friday": "2026-09-25", "Sunday": "2026-09-27", "Saturday, October 10": "2026-10-10",
+                 "10th of October": "2026-10-10", "Oct 10th": "2026-10-10", "the 10th": "2026-10-10",
+                 "the 5th": "2026-10-05", "2026-11-02": "2026-11-02"}
+        for words, date in cases.items():
+            with self.subTest(words):
+                r = self.check(day_words=words, date="2026-09-20")
+                self.assertIsNone(r["problem"])
+                self.assertEqual(r["event"]["date"], date)
+
+    def test_a_january_date_said_in_december_is_next_year(self):
+        r = run_js(self.CODE, {"ev": {**EVENT, "day_words": "January 5"}, "meetingDate": "2026-12-20"})
+        self.assertEqual(r["result"]["event"]["date"], "2027-01-05")
+
+    def test_missing_or_zero_length_end_means_one_hour(self):
+        for end in ("", "10:00"):
+            with self.subTest(end=end):
+                self.assertEqual(self.check(start="10:00", end=end)["event"]["end"], "11:00")
+        self.assertEqual(self.check(start="9:30", end="")["event"]["start"], "09:30")
 
     def test_no_event_is_not_a_problem(self):
         r = run_js(self.CODE, {"ev": {"needed": False}, "meetingDate": "2026-09-20"})
@@ -170,7 +195,7 @@ class Nodes(unittest.TestCase):
     def test_approval_form_shows_what_will_leave_after_removal(self):
         model = {"summary": "Dana will call about account 88120034 today.", "decisions": [],
                  "action_items": [{"owner": "Dana", "task": "Card 4111 1111 1111 1111", "due": "someday"}],
-                 "event": {**EVENT, "date": "2026-02-30"}}
+                 "event": {**EVENT, "day_words": "February 30"}}
         r = run_js(build.CHECK_SUMMARY, {"model": "m", "message": {"content": json.dumps(model)}, "total_duration": 1e9},
                    nodes={"Check transcript": {"meeting": MEETING}})
         self.assertTrue(r["ok"], r.get("error"))
