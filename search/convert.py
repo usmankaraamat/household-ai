@@ -123,7 +123,9 @@ def transcribe(image_bytes, model):
     text, looped = collapse_loops(r["message"]["content"].strip())
     if r.get("done_reason") == "length":
         text, looped = text + "\n[cut off: the model hit its output limit: check the original]", True
-    if len(text) <= FORM_MAX_CHARS:
+    # A read that looped (the back of a CNIC, which is only an Urdu address) loops again in
+    # the second pass too: it doubled that file's time for nothing. Skip it then.
+    if len(text) <= FORM_MAX_CHARS and not looped:
         fields = format_fields(ask(FIELDS, format=FIELDS_SCHEMA)["message"]["content"])
         if fields:
             text += "\n\n### Fields (read separately, as label: value)\n\n" + fields

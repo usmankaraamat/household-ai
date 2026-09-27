@@ -50,7 +50,12 @@ def _split(body, limit=MAX_CHARS):
 
 
 def chunks(path):
-    lines = [l for l in path.read_text(encoding="utf-8").splitlines() if not l.startswith("> Fabricated")]
+    # The "fabricated sample" and "converted from" notes are for people, not for search. Left
+    # in, a converted file's opening section was only its title and that note, and a question
+    # naming the document ("when does my CNIC expire?") matched it better than the section
+    # holding the answer.
+    lines = [l for l in path.read_text(encoding="utf-8").splitlines()
+             if not l.startswith(("> Fabricated", "> Converted from"))]
     title = next((l for l in lines if l.startswith("# ")), path.stem)
     sections, current = [], []
     for line in lines:
@@ -60,6 +65,9 @@ def chunks(path):
         current.append(line)
     sections.append(current)
     for section in sections:
+        if not any(l.strip() and l != title for l in section):
+            continue  # nothing but the title
+
         for body in _split("\n".join(section).strip()):
             text = body if body.startswith(title) else f"{title}\n\n{body}"
             yield {"source": path.name, "text": text}

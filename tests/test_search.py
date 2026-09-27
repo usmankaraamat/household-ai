@@ -142,6 +142,15 @@ class Splitting(unittest.TestCase):
         self.assertTrue(all(len(p) <= MAX_CHARS for p in parts))
         self.assertEqual("\n\n".join(parts), "\n\n".join(paras))  # nothing lost, nothing repeated
 
+    def test_a_title_only_opening_section_is_not_indexed(self):
+        f = Path(tempfile.mkdtemp()) / "cnic.md"
+        f.write_text("# CNIC.pdf\n\n> Converted from originals/CNIC.pdf on 2026-09-27. Check it.\n\n"
+                     "## Page 1\n\nDate of Expiry: 01.02.2030\n", encoding="utf-8")
+        texts = [c["text"] for c in chunks(f)]
+        self.assertEqual(len(texts), 1)
+        self.assertIn("Date of Expiry", texts[0])
+        self.assertNotIn("Converted from", texts[0])
+
     def test_every_piece_keeps_the_document_title(self):
         f = Path(tempfile.mkdtemp()) / "statement.md"
         f.write_text("# HBL statement\n\n" + "\n\n".join("y" * 900 for _ in range(6)), encoding="utf-8")
