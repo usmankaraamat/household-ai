@@ -29,10 +29,11 @@ documents**. Every name, number and company in `data/` is invented.
   inputs mocked. [docs/test-plan.md](docs/test-plan.md) is the end-to-end check with real
   accounts.
 
-**Tested end to end** (in n8n, against real Notion and Google accounts) on 26 Sep: the
-first version of the meeting workflow. The version here adds the outbound check, the
-meeting ID, the Notion look-up loop and the Fathom poller, and has not yet had that live
-run.
+**Tested end to end** in n8n against real Notion, Google Calendar and Fathom accounts on
+26 and 27 Sep: the real Fathom meeting flow, duplicate protection, recovery after a failure
+and after a reboot, and the health check. Document search was run on a real personal set of
+29 files. What those runs found and fixed, with timings, is in
+[docs/live-test-2026-09-27.md](docs/live-test-2026-09-27.md).
 
 ## Read these first
 
