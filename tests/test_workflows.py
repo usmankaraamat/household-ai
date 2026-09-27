@@ -30,7 +30,7 @@ def run_js(code, input=None, nodes=None, run_index=0, static=None):
     out = subprocess.run([NODE, str(HARNESS)], input=json.dumps(
         {"code": code, "input": input or {}, "nodes": nodes or {}, "runIndex": run_index,
          "staticData": static or {}}),
-        capture_output=True, text=True, timeout=30)
+        capture_output=True, text=True, encoding="utf-8", timeout=30)
     if out.returncode:
         raise RuntimeError(out.stderr)
     return json.loads(out.stdout)
@@ -113,7 +113,8 @@ class OutboundCheck(unittest.TestCase):
         for text in ["Call (310) 555-0199 for repairs", "Rent is $4,850, late after the 5th",
                      "Flu shots on October 10, 10-11 am", "Filter size 16x25x1, due 2026-09-01",
                      "The account holder is Dana", "4111 1111 1111 1112 fails the checksum",
-                     "Call me on 0300-1234567", "The HSBC office on MM Alam Road"]:
+                     "Call me on 0300-1234567", "The HSBC office on MM Alam Road",
+                     "تو ہو جائے تو انشاءاللہ"]:
             with self.subTest(text=text):
                 r = self.scrub(text)
                 self.assertEqual(r["out"], text)
