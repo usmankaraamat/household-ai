@@ -3,8 +3,9 @@
     python -m search.convert                                   # text PDFs, Word, .txt, .md
     python -m search.convert --vision-model qwen2.5vl:7b        # also photos and scans
 
-Put originals in personal/originals/. Each becomes personal/docs/<name>.md, which
-`python -m search.index --docs personal` then indexes. Originals are never changed.
+Put originals in personal/originals/, in subfolders if you like. Each becomes
+personal/docs/<folders--name>.md, which `python -m search.index --docs personal` then
+indexes. Originals are never changed.
 
 - Text PDFs are read with pypdf (pip install pypdf). The rest of the project needs no
   packages; this is only for PDFs.
@@ -89,8 +90,27 @@ def convert(path, vision_model=None):
     return None, None, f"{ext} files aren't supported"
 
 
-def out_name(path):
-    return re.sub(r"[^\w.-]+", "-", path.stem).strip("-").lower() + ".md"
+def _slug(s):
+    return re.sub(r"[^\w.-]+", "-", s).strip("-").lower()
+
+
+def out_name(path, root=None, with_ext=False):
+    """The converted file's name. Folders become part of it ("resumes--2024--cv.md") so files
+    with the same name in different folders don't overwrite each other; with_ext adds the
+    type for same-name files in one folder ("cv-pdf.md", "cv-docx.md")."""
+    rel = path.relative_to(root) if root else Path(path.name)
+    stem = _slug(rel.stem) + (f"-{_slug(rel.suffix.lstrip('.'))}" if with_ext and rel.suffix else "")
+    return "--".join([_slug(p) for p in rel.parent.parts] + [stem]) + ".md"
+
+
+SKIP = re.compile(r"^(~\$|\.)|^(desktop\.ini|thumbs\.db)$", re.I)  # Office lock files, hidden and system files
+
+
+def find_originals(root):
+    """Every document under root, in subfolders too, with the name each converts to."""
+    files = sorted(f for f in root.rglob("*") if f.is_file() and not SKIP.search(f.name))
+    names = [out_name(f, root) for f in files]
+    return [(f, out_name(f, root, with_ext=names.count(n) > 1)) for f, n in zip(files, names)]
 
 
 def main(argv=None):
@@ -100,23 +120,24 @@ def main(argv=None):
     a = p.parse_args(argv)
     ORIGINALS.mkdir(parents=True, exist_ok=True)
     DOCS.mkdir(parents=True, exist_ok=True)
-    files = sorted(f for f in ORIGINALS.iterdir() if f.is_file())
+    files = find_originals(ORIGINALS)
     if not files:
         sys.exit(f"Put your documents in {ORIGINALS} first.")
     done = 0
-    for f in files:
-        dest = DOCS / out_name(f)
+    for f, name in files:
+        dest = DOCS / name
+        rel = f.relative_to(ORIGINALS).as_posix()
         if dest.exists() and dest.stat().st_mtime >= f.stat().st_mtime and not a.force:
             continue
         text, how, problem = convert(f, a.vision_model)
         if text is None:
-            print(f"  skipped   {f.name}: {problem}")
+            print(f"  skipped   {rel}: {problem}")
             continue
-        header = (f"# {f.name}\n\n> Converted from {f.name} on {datetime.date.today().isoformat()} ({how}). "
+        header = (f"# {f.name}\n\n> Converted from originals/{rel} on {datetime.date.today().isoformat()} ({how}). "
                   "Check anything important against the original.\n\n")
         dest.write_text(header + text.strip() + "\n", encoding="utf-8")
         done += 1
-        print(f"  converted {f.name} -> {dest.name}" + (f"  (partly: {problem})" if problem else ""))
+        print(f"  converted {rel} -> {dest.name}" + (f"  (partly: {problem})" if problem else ""))
     print(f"{done} converted. Next: python -m search.index --docs personal")
 
 

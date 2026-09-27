@@ -78,6 +78,23 @@ class Convert(unittest.TestCase):
     def test_output_names_are_safe(self):
         self.assertEqual(convert.out_name(Path("HBL Statement (Aug).pdf")), "hbl-statement-aug.md")
 
+    def test_subfolders_are_found_and_names_never_collide(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for rel in ["Resumes/2024/CV.pdf", "Resumes/2025/CV.pdf", "Resumes/2025/CV.docx",
+                        "Letters/offer.md", "Resumes/~$CV.docx", "Resumes/desktop.ini", "top.txt"]:
+                (root / rel).parent.mkdir(parents=True, exist_ok=True)
+                (root / rel).write_text("x", encoding="utf-8")
+            found = {f.relative_to(root).as_posix(): name for f, name in convert.find_originals(root)}
+        self.assertEqual(found, {
+            "Letters/offer.md": "letters--offer.md",
+            "Resumes/2024/CV.pdf": "resumes--2024--cv.md",
+            "Resumes/2025/CV.docx": "resumes--2025--cv-docx.md",
+            "Resumes/2025/CV.pdf": "resumes--2025--cv-pdf.md",
+            "top.txt": "top.md",
+        })
+
 
 class Splitting(unittest.TestCase):
     def test_short_sections_are_untouched(self):
